@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedStudy AI - Sơ đồ Tư duy Đồ họa Y Dược</title>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15.4"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.15.4/dist/browser/index.js"></script>
+
+<style>
+  :root{
+    --ink:#17201C;
+    --paper:#F4F6F0;
+    --card:#FFFFFF;
+    --line:#DCE1D4;
+    --muted:#636D64;
+    --accent:#1E5E3A;
+    --accent-soft:#E4EFE8;
+    --warm:#B36B1B;
+    --warm-soft:#F8F1E4;
+    --correct:#2D7A46;
+    --correct-soft:#E2F3E7;
+    --wrong:#B83A2E;
+    --wrong-soft:#FCEAE8;
+    --radius:10px;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:15px; line-height:1.55;
+  }
+  h1,h2,h3,h4{font-family:var(--serif); font-weight:600; margin:0 0 8px;}
+  .app{display:flex; min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{
+    width:300px; flex-shrink:0; background:var(--card);
+    border-right:1px solid var(--line); padding:20px 16px;
+    display:flex; flex-direction:column; gap:14px;
+    height:100vh; position:sticky; top:0; overflow-y:auto;
+  }
+  .brand{display:flex; align-items:baseline; gap:8px; padding:0 4px 12px; border-bottom:1px solid var(--line);}
+  .brand .mark{width:11px;height:11px;border-radius:50%;background:var(--accent); display:inline-block;}
+  .brand h1{font-size:19px; letter-spacing:.2px;}
+  
+  .api-box{padding:10px; background:#fafbfa; border:1px solid var(--line); border-radius:8px;}
+  .api-box label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px; font-weight:600;}
+  .api-box input{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12px;}
+  .api-box a{display:block; font-size:11px; color:var(--accent); margin-top:4px; text-decoration:none;}
+  
+  .subject-block{border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:4px;}
+  .subject-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 6px; cursor:pointer; border-radius:8px;
+  }
+  .subject-head:hover{background:var(--accent-soft);}
+  .subject-head .name{font-weight:600; font-size:14.5px; word-break:break-word;}
+  .subject-head .chev{color:var(--muted); font-size:12px; transition:transform .15s;}
+  .subject-head.open .chev{transform:rotate(90deg);}
+  
+  .action-btns{display:flex; align-items:center; gap:2px;}
+  .action-btn{
+    color:var(--muted); font-size:12px; cursor:pointer; padding:2px 5px; border-radius:4px; opacity:0;
+    transition:opacity .15s ease;
+  }
+  .subject-head:hover .action-btn, .lesson-item:hover .action-btn{opacity:.85;}
+  .action-btn:hover{color:var(--ink); background:#E6ECE2; opacity:1 !important;}
+  .action-btn.del:hover{color:var(--wrong); background:var(--wrong-soft); opacity:1 !important;}
+
+  .lesson-list{padding-left:14px; margin-top:4px; display:flex; flex-direction:column; gap:2px;}
+  .lesson-item{
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    padding:7px 8px; border-radius:7px; cursor:pointer; font-size:13.5px; color:var(--ink);
+    border-left:2px solid transparent;
+  }
+  .lesson-item:hover{background:var(--warm-soft);}
+  .lesson-item.active{background:var(--warm-soft); border-left:2px solid var(--warm); font-weight:600;}
+  
+  .add-row{display:flex; gap:6px; padding:6px 4px 0;}
+  .add-row input{
+    flex:1; min-width:0; font-size:13px; padding:6px 8px; border:1px solid var(--line);
+    border-radius:7px; background:#fff;
+  }
+  .btn{
+    border:none; border-radius:7px; padding:7px 13px; font-size:13.5px; cursor:pointer;
+    background:var(--ink); color:#fff; font-family:var(--sans); white-space:nowrap;
+  }
+  .btn:hover{opacity:.9;}
+  .btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent);}
+  .btn.warm{background:var(--warm);}
+  .btn.small{padding:4px 9px; font-size:12px;}
+  .btn:disabled{opacity:.5; cursor:default;}
+  .sidebar-footer{margin-top:auto; padding-top:10px;}
+  .add-subject{display:flex; gap:6px;}
+  .add-subject input{flex:1; padding:8px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px;}
+
+  /* Main */
+  .main{flex:1; min-width:0; padding:24px 36px 60px; max-width:1260px;}
+  .empty{margin-top:80px; text-align:center; color:var(--muted);}
+  .empty h2{color:var(--ink); font-size:22px;}
+  .lesson-header{margin-bottom:14px;}
+  .eyebrow{color:var(--muted); font-size:13px; margin-bottom:4px;}
+  .lesson-title{font-size:26px;}
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin:16px 0 20px;}
+  .tab{
+    padding:9px 16px; cursor:pointer; font-size:14px; color:var(--muted);
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab.active{color:var(--ink); border-bottom:2px solid var(--accent); font-weight:600;}
+
+  /* Upload & Multi-file */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:0 1px 3px rgba(0,0,0,0.03);}
+  .upload-box{
+    border:2px dashed #B8C2B0; padding:32px 20px; border-radius:8px; text-align:center;
+    background:#FAFCF8; margin-bottom:14px; cursor:pointer; transition:all .2s ease;
+  }
+  .upload-box.dragover{border-color:var(--accent); background:var(--accent-soft);}
+  
+  .file-queue{display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+  .file-chip{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; background:#F0F4ED; border:1px solid var(--line); border-radius:7px;
+    font-size:13px; color:var(--ink);
+  }
+  .file-chip .chip-del{cursor:pointer; color:var(--muted); font-weight:bold; padding:0 4px;}
+  .file-chip .chip-del:hover{color:var(--wrong);}
+
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px;}
+  .field textarea{
+    width:100%; min-height:90px; resize:vertical; font-family:var(--sans); font-size:13.5px;
+    padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff; line-height:1.5;
+  }
+  .field{margin-bottom:16px;}
+  .status-line{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px;}
+
+  /* ============================================================
+     THIẾT KẾ ĐỒ HỌA MARKMAP: Ô ĐEN TRONG SUỐT, KHÔNG LINE THỪA
+     ============================================================ */
+  .mindmap-wrapper{
+    border:1px solid #28332D; border-radius:12px; background:#1F2421;
+    overflow:hidden; position:relative; box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  }
+  .mindmap-toolbar{
+    position:absolute; top:12px; right:12px; z-index:10; display:flex; gap:6px;
+    background:rgba(28,36,32,0.92); backdrop-filter:blur(5px); padding:5px 8px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.12);
+  }
+  .mindmap-toolbar button{
+    background:#2C3933; color:#FFFFFF; border:1px solid rgba(255,255,255,0.15); border-radius:5px;
+    padding:5px 10px; font-size:12px; cursor:pointer; font-weight:500;
+  }
+  .mindmap-toolbar button:hover{background:#3E4E46;}
+
+  #markmapSvg{
+    width:100%; height:720px; display:block;
+  }
+
+  /* 1. ĐƯỜNG CONG NỐI MƯỢT MÀ */
+  #markmapSvg path.markmap-link {
+    fill: none !important;
+    stroke: #55685D !important;
+    stroke-width: 1.8px !important;
+    stroke-linecap: round !important;
+  }
+
+  /* 2. XÓA TRIỆT ĐỂ MỌI ĐƯỜNG LINE GẠCH CHÂN THỪA */
+  #markmapSvg line,
+  #markmapSvg line.markmap-line,
+  #markmapSvg path.markmap-line {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    stroke: none !important;
+    stroke-width: 0 !important;
+  }
+
+  /* 3. Ô CHỮ: NỀN ĐEN TRONG SUỐT (GLASSMORPHISM), CHỮ TRẮNG */
+  #markmapSvg foreignObject {
+    overflow: visible !important;
+    cursor: pointer !important;
+  }
+
+  #markmapSvg foreignObject > div {
+    display: inline-flex !important;
+    align-items: center !important;
+    background: rgba(18, 26, 21, 0.82) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    color: #FFFFFF !important;
+    padding: 7px 16px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.2px !important;
+    white-space: nowrap !important;
+    user-select: none !important;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease !important;
+  }
+
+  #markmapSvg foreignObject > div:hover {
+    background: rgba(28, 42, 33, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.38) !important;
+  }
+
+  /* Nút gốc level 0 */
+  #markmapSvg g[data-depth="0"] foreignObject > div {
+    background: rgba(24, 67, 44, 0.9) !important;
+    border-color: #2F724E !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+  }
+
+  /* 4. NÚT MŨI TÊN BẬT/XỔ NATIVE SVG (> VÀ <) NẰM NGAY ĐẦU ĐƯỜNG PHÂN NHÁNH */
+  .markmap-fold-button {
+    cursor: pointer !important;
+  }
+  .markmap-fold-button rect {
+    fill: #243028;
+    stroke: #3E5043;
+    stroke-width: 1.2px;
+    rx: 4px;
+    ry: 4px;
+    transition: fill 0.15s ease, stroke 0.15s ease;
+  }
+  .markmap-fold-button:hover rect {
+    fill: #34473B;
+    stroke: #5E7A67;
+  }
+  .markmap-fold-button text {
+    fill: #E0EBE3;
+    font-family: -apple-system, BlinkMacSystemFont, monospace, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+  }
+
+  /* Ẩn dấu chấm tròn mặc định của Markmap */
+  #markmapSvg circle {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Quiz */
+  .q-progress{font-size:13px; color:var(--muted); margin-bottom:10px;}
+  .q-box{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
+  .q-text{font-size:16.5px; margin-bottom:16px; font-weight:600;}
+  .opt{
+    display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--line);
+    border-radius:8px; margin-bottom:9px; cursor:pointer; background:#fff; font-size:14.5px;
+  }
+  .opt:hover{border-color:var(--accent);}
+  .opt.correct{background:var(--correct-soft); border-color:var(--correct);}
+  .opt.wrong{background:var(--wrong-soft); border-color:var(--wrong);}
+  .opt.disabled{cursor:default;}
+  .opt .letter{
+    width:24px; height:24px; border-radius:50%; border:1px solid var(--line); background:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; color:var(--muted);
+  }
+  .opt.correct .letter{background:var(--correct); border-color:var(--correct); color:#fff;}
+  .opt.wrong .letter{background:var(--wrong); border-color:var(--wrong); color:#fff;}
+  .explain{
+    margin-top:14px; padding:14px 16px; background:var(--warm-soft); border-radius:8px; font-size:14px;
+    border-left:3.5px solid var(--warm); line-height:1.55;
+  }
+  .q-nav{display:flex; justify-content:space-between; margin-top:18px;}
+  .score-card{text-align:center; padding:40px 20px;}
+  .score-num{font-family:var(--serif); font-size:48px; color:var(--accent);}
+  .review-list .rev-item{
+    border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; background:#fff;
+  }
+  .tag{font-size:11px; padding:3px 8px; border-radius:20px; font-weight:600; display:inline-block; margin-right:6px;}
+  .tag.ok{background:var(--correct-soft); color:var(--correct);}
+  .tag.bad{background:var(--wrong-soft); color:var(--wrong);}
+
+  .hist-item{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 14px;
+    border:1px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer; background:#fff;
+  }
+  .hist-item:hover{border-color:var(--accent);}
+  .loader{display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13.5px;}
+  .spinner{
+    width:14px; height:14px; border-radius:50%; border:2px solid var(--line); border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media (max-width:760px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:relative; border-right:none; border-bottom:1px solid var(--line);}
+    .main{padding:20px;}
+    #markmapSvg{height:500px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <div class="brand"><span class="mark"></span><h1>MedStudy AI</h1></div>
+
+    <div class="api-box">
+      <label>Google Gemini API Key:</label>
+      <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã miễn phí tại Google AI Studio</a>
+    </div>
+
+    <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
+    
+    <div class="sidebar-footer">
+      <div class="add-subject">
+        <input type="text" id="newSubjectInput" placeholder="Tên môn học mới…">
+        <button class="btn" id="addSubjectBtn">Thêm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main" id="main"></div>
+</div>
+
+<script>
+/* 1. STORAGE */
+function getStore(key){
+  try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
+  catch(e) { return null; }
+}
+function setStore(key, value){
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e) { return false; }
+}
+function delStore(key){
+  try { localStorage.removeItem(key); } catch(e) {}
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* 2. APP STATE */
+let toc = { subjects: [], lessonsBySubject: {} };
+let openSubjects = new Set();
+let currentSubjectId = null;
+let currentLessonId = null;
+let currentLesson = null;
+let activeTab = 'mindmap';
+let quiz = { index:0, answers:[], started:false, done:false };
+
+let uploadedFilesQueue = [];
+let currentMmInstance = null;
+let currentMmRoot = null;
+
+function init(){
+  const savedKey = localStorage.getItem('gemini_api_key');
+  if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
+  document.getElementById('apiKeyInput').addEventListener('change', (e) => {
+    localStorage.setItem('gemini_api_key', e.target.value.trim());
+  });
+
+  const savedToc = getStore('toc');
+  if(savedToc) toc = savedToc;
+  renderSidebar();
+  renderMain();
+}
+init();
+
+/* 3. SIDEBAR */
+function renderSidebar(){
+  const list = document.getElementById('subjectList');
+  list.innerHTML = '';
+  if(toc.subjects.length === 0){
+    const p = document.createElement('div');
+    p.style.cssText = 'color:var(--muted); font-size:13px; padding:8px 4px;';
+    p.textContent = 'Chưa có môn học nào. Thêm môn ở bên dưới để bắt đầu.';
+    list.appendChild(p);
+  }
+  toc.subjects.forEach(subj => {
+    const block = document.createElement('div');
+    block.className = 'subject-block';
+
+    const head = document.createElement('div');
+    head.className = 'subject-head' + (openSubjects.has(subj.id) ? ' open' : '');
+    head.innerHTML = `
+      <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+        <span class="chev">▶</span><span class="name"></span>
+      </span>
+      <div class="action-btns">
+        <span class="action-btn edit-subj" title="Đổi tên môn">✎</span>
+        <span class="action-btn del del-subj" title="Xoá môn">✕</span>
+      </div>`;
+    head.querySelector('.name').textContent = subj.name;
+
+    head.addEventListener('click', (e) => {
+      if(e.target.closest('.action-btns')) return;
+      if(openSubjects.has(subj.id)) openSubjects.delete(subj.id); else openSubjects.add(subj.id);
+      renderSidebar();
+    });
+
+    head.querySelector('.edit-subj').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const newName = prompt('Nhập tên môn học mới:', subj.name);
+      if(newName && newName.trim() && newName.trim() !== subj.name){
+        subj.name = newName.trim();
+        setStore('toc', toc);
+        renderSidebar();
+        renderMain();
+      }
+    });
+
+    head.querySelector('.del-subj').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(!confirm(`Xoá môn "${subj.name}" và toàn bộ bài học bên trong?`)) return;
+      const lessons = toc.lessonsBySubject[subj.id] || [];
+      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); }
+      delete toc.lessonsBySubject[subj.id];
+      toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
+      setStore('toc', toc);
+      if(currentSubjectId === subj.id){ currentSubjectId=null; currentLessonId=null; currentLesson=null; }
+      renderSidebar(); renderMain();
+    });
+    block.appendChild(head);
+
+    if(openSubjects.has(subj.id)){
+      const lessonList = document.createElement('div');
+      lessonList.className = 'lesson-list';
+      const lessons = toc.lessonsBySubject[subj.id] || [];
+      lessons.forEach(lesson => {
+        const item = document.createElement('div');
+        item.className = 'lesson-item' + (currentLessonId === lesson.id ? ' active' : '');
+        item.innerHTML = `
+          <span class="lname" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+          <div class="action-btns">
+            <span class="action-btn edit-lesson" title="Đổi tên bài">✎</span>
+            <span class="action-btn del del-lesson" title="Xoá bài">✕</span>
+          </div>`;
+        item.querySelector('.lname').textContent = lesson.name;
+
+        item.querySelector('.edit-lesson').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newName = prompt('Nhập tên bài học mới:', lesson.name);
+          if(newName && newName.trim() && newName.trim() !== lesson.name){
+            lesson.name = newName.trim();
+            const savedLesson = getStore('lesson:' + lesson.id);
+            if(savedLesson){
+              savedLesson.name = lesson.name;
+              setStore('lesson:' + lesson.id, savedLesson);
+              if(currentLessonId === lesson.id){ currentLesson = savedLesson; }
+            }
+            setStore('toc', toc);
+            renderSidebar();
+            renderMain();
+          }
+        });
+
+        item.querySelector('.del-lesson').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(!confirm(`Xoá bài "${lesson.name}"?`)) return;
+          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id);
+          toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
+          setStore('toc', toc);
+          if(currentLessonId === lesson.id){ currentLessonId=null; currentLesson=null; }
+          renderSidebar(); renderMain();
+        });
+
+        item.addEventListener('click', (e) => {
+          if(e.target.closest('.action-btns')) return;
+          currentSubjectId = subj.id;
+          currentLessonId = lesson.id;
+          activeTab = 'mindmap';
+          quiz = { index:0, answers:[], started:false, done:false };
+          uploadedFilesQueue = [];
+          currentLesson = getStore('lesson:'+lesson.id);
+          renderSidebar(); renderMain();
+        });
+
+        lessonList.appendChild(item);
+      });
+
+      const addRow = document.createElement('div');
+      addRow.className = 'add-row';
+      addRow.innerHTML = `<input type="text" placeholder="Tên bài học…"><button class="btn small">Thêm</button>`;
+      const inp = addRow.querySelector('input');
+      addRow.querySelector('button').addEventListener('click', () => addLesson(subj.id, inp));
+      inp.addEventListener('keydown', (e) => { if(e.key === 'Enter') addLesson(subj.id, inp); });
+      lessonList.appendChild(addRow);
+      block.appendChild(lessonList);
+    }
+    list.appendChild(block);
+  });
+}
+
+function addLesson(subjectId, inputEl){
+  const name = inputEl.value.trim();
+  if(!name) return;
+  const id = uid();
+  if(!toc.lessonsBySubject[subjectId]) toc.lessonsBySubject[subjectId] = [];
+  toc.lessonsBySubject[subjectId].push({ id, name, createdAt: Date.now() });
+  setStore('toc', toc);
+  inputEl.value = '';
+  currentSubjectId = subjectId;
+  currentLessonId = id;
+  currentLesson = null;
+  uploadedFilesQueue = [];
+  activeTab = 'mindmap';
+  renderSidebar(); renderMain();
+}
+
+document.getElementById('addSubjectBtn').addEventListener('click', addSubjectHandler);
+document.getElementById('newSubjectInput').addEventListener('keydown', e => { if(e.key==='Enter') addSubjectHandler(); });
+function addSubjectHandler(){
+  const inp = document.getElementById('newSubjectInput');
+  const name = inp.value.trim();
+  if(!name) return;
+  const id = uid();
+  toc.subjects.push({ id, name });
+  toc.lessonsBySubject[id] = [];
+  openSubjects.add(id);
+  setStore('toc', toc);
+  inp.value = '';
+  renderSidebar();
+}
+
+/* 4. MAIN */
+function renderMain(){
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  if(!currentLessonId){
+    main.innerHTML = `
+      <div class="empty">
+        <h2>Chọn hoặc tạo một bài học để bắt đầu ôn tập</h2>
+        <p>Chọn môn học bên trái, thêm bài học và nạp file giáo trình PDF.</p>
+      </div>`;
+    return;
+  }
+
+  const subj = toc.subjects.find(s => s.id === currentSubjectId);
+  const lessonMeta = (toc.lessonsBySubject[currentSubjectId] || []).find(l => l.id === currentLessonId);
+
+  const header = document.createElement('div');
+  header.className = 'lesson-header';
+  header.innerHTML = `<div class="eyebrow"></div><h2 class="lesson-title"></h2>`;
+  header.querySelector('.eyebrow').textContent = subj ? subj.name : '';
+  header.querySelector('.lesson-title').textContent = lessonMeta ? lessonMeta.name : '';
+  main.appendChild(header);
+
+  if(!currentLesson){
+    main.appendChild(renderGenerateForm());
+    return;
+  }
+
+  const tabs = document.createElement('div');
+  tabs.className = 'tabs';
+  [['mindmap','Sơ đồ Tư duy (Bật/Xổ)'],['quiz','Trắc nghiệm'],['history','Lịch sử ôn thi']].forEach(([key,label]) => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (activeTab===key ? ' active' : '');
+    t.textContent = label;
+    t.addEventListener('click', () => { 
+      activeTab = key; 
+      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false}; } 
+      renderMain(); 
+    });
+    tabs.appendChild(t);
+  });
+  main.appendChild(tabs);
+
+  const body = document.createElement('div');
+  body.id = 'tabBody';
+  main.appendChild(body);
+
+  if(activeTab === 'mindmap') renderMindmap(body);
+  else if(activeTab === 'quiz') renderQuiz(body);
+  else renderHistory(body);
+}
+
+function renderGenerateForm(){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.innerHTML = `
+    <div class="upload-box" id="dropArea">
+      <p style="margin:0 0 6px; font-weight:600; font-size:16px;">📄 Kéo thả một hoặc NHIỀU file PDF giáo trình vào đây</p>
+      <span style="font-size:13px; color:var(--muted);">hoặc bấm vào khung này để chọn cùng lúc nhiều file từ máy tính</span>
+      <input type="file" id="pdfInput" accept="application/pdf" multiple style="display:none;">
+    </div>
+    <div class="file-queue" id="fileQueue"></div>
+    <div class="field">
+      <label>Ghi chú bổ sung (tuỳ chọn):</label>
+      <textarea id="contentInput" placeholder="Nhập thêm ghi chú hoặc dán nội dung bổ sung nếu có…"></textarea>
+    </div>
+    <button class="btn warm" id="genBtn">Tạo Sơ đồ Đồ họa &amp; Bộ đề Trắc nghiệm</button>
+    <div class="status-line" id="genStatus"></div>
+  `;
+
+  const pdfInput = wrap.querySelector('#pdfInput');
+  const dropArea = wrap.querySelector('#dropArea');
+  const queueEl = wrap.querySelector('#fileQueue');
+  const textarea = wrap.querySelector('#contentInput');
+  const status = wrap.querySelector('#genStatus');
+
+  function renderQueueList(){
+    queueEl.innerHTML = '';
+    if(uploadedFilesQueue.length > 0){
+      uploadedFilesQueue.forEach((fileObj, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        chip.innerHTML = `
+          <span>📕 <strong>${fileObj.name}</strong> (${Math.round(fileObj.size/1024)} KB)</span>
+          <span class="chip-del" title="Xoá file này">✕</span>
+        `;
+        chip.querySelector('.chip-del').addEventListener('click', () => {
+          uploadedFilesQueue.splice(idx, 1);
+          renderQueueList();
+        });
+        queueEl.appendChild(chip);
+      });
+      status.textContent = `Đã sẵn sàng phân tích ${uploadedFilesQueue.length} file PDF!`;
+      status.style.color = 'var(--correct)';
+    } else {
+      status.textContent = '';
+    }
+  }
+
+  async function processFiles(filesList){
+    const validFiles = Array.from(filesList).filter(f => f.type === "application/pdf" || f.name.toLowerCase().endsWith('.pdf'));
+    if(validFiles.length === 0){
+      alert("Vui lòng chọn các file có định dạng PDF!");
+      return;
+    }
+    status.innerHTML = `<span class="loader"><span class="spinner"></span> Đang nạp ${validFiles.length} file PDF vào bộ nhớ...</span>`;
+    
+    for (const file of validFiles) {
+      if(!uploadedFilesQueue.some(item => item.name === file.name && item.size === file.size)){
+        await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            uploadedFilesQueue.push({
+              name: file.name,
+              size: file.size,
+              base64: e.target.result.split(',')[1]
+            });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    }
+    renderQueueList();
+  }
+
+  dropArea.addEventListener('click', () => pdfInput.click());
+  pdfInput.addEventListener('change', (e) => { if(e.target.files.length) processFiles(e.target.files); });
+
+  ['dragenter', 'dragover'].forEach(name => {
+    dropArea.addEventListener(name, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropArea.classList.add('dragover');
+    }, false);
+  });
+  ['dragleave', 'drop'].forEach(name => {
+    dropArea.addEventListener(name, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropArea.classList.remove('dragover');
+    }, false);
+  });
+  dropArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if(dt && dt.files.length){ processFiles(dt.files); }
+  }, false);
+
+  wrap.querySelector('#genBtn').addEventListener('click', () => generateLessonWithGemini(wrap));
+  return wrap;
+}
+
+/* 5. GỌI GEMINI TẠO CẤU TRÚC NHÁNH */
+async function generateLessonWithGemini(wrap){
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const textarea = wrap.querySelector('#contentInput');
+  const status = wrap.querySelector('#genStatus');
+  const btn = wrap.querySelector('#genBtn');
+  const manualText = textarea.value.trim();
+
+  if(!apiKey){
+    alert("Vui lòng dán Google Gemini API Key ở khung bên trái trước.");
+    return;
+  }
+  
+  if(uploadedFilesQueue.length === 0 && manualText.length < 50){
+    status.textContent = 'Vui lòng nạp ít nhất một file PDF hoặc dán nội dung giáo trình.';
+    status.style.color = 'var(--wrong)';
+    return;
+  }
+
+  btn.disabled = true;
+  status.style.color = 'var(--muted)';
+  status.innerHTML = `<span class="loader"><span class="spinner"></span> AI đang phân tích tài liệu và dựng cây sơ đồ đồ họa đa nhánh...</span>`;
+
+  const promptText = `Bạn là chuyên gia thiết kế bản đồ tư duy Y Dược học trực quan.
+Nhiệm vụ: Đọc kỹ tài liệu và trả về DUY NHẤT một đối tượng JSON hợp lệ (không dùng backtick \`\`\`json, không lời dẫn ngoài).
+
+CẤU TRÚC BẮT BUỘC:
+{
+  "mindmapMarkdown": "# Tên chủ đề chính\\n## 1. Nhánh lớn 1\\n### Nhánh con 1.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n### Nhánh con 1.2\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n## 2. Nhánh lớn 2\\n### Nhánh con 2.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2",
+  "questions": [
+    {
+      "question": "Nội dung câu hỏi trắc nghiệm?",
+      "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
+      "correctIndex": 0,
+      "explanation": "Giải thích chi tiết tại sao đúng và tại sao các phương án khác sai"
+    }
+  ]
+}
+
+QUY TẮC QUAN TRỌNG CHO MINDMAP MARKDOWN:
+- Gốc bắt đầu bằng '#' (VD: # Các phương pháp quang phổ trong kiểm nghiệm thuốc).
+- CÁC NHÁNH CHÍNH bắt đầu bằng '##' (VD: ## 1. Quang phổ hấp thụ UV-Vis, ## 2. Quang phổ hồng ngoại (IR), ## 3. Quang phổ huỳnh quang).
+- CÁC NHÁNH PHỤ bắt đầu bằng '###' (VD: ### 1.1 Nguyên lý & Định luật, ### 1.2 Cấu tạo máy, ### 1.3 Hiệu chuẩn máy).
+- CÁC Ý CHI TIẾT BẮT ĐẦU BẰNG '-' (VD: - Sự chuyển hóa năng lượng, - Định luật Lambert-Beer (A = ε.L.C)).
+- BẮT BUỘC phải có đầy đủ các cấp ##, ### và - để cây bung tỏa nhiều nhánh ngắn gọn, bao quát.
+- Soạn 12-18 câu hỏi trắc nghiệm chất lượng cao.`;
+
+  let parts = [{ text: promptText }];
+  if(uploadedFilesQueue.length > 0){
+    uploadedFilesQueue.forEach(f => {
+      parts.push({
+        inline_data: {
+          mime_type: "application/pdf",
+          data: f.base64
+        }
+      });
+    });
+  }
+  if(manualText){
+    parts.push({ text: "GHI CHÚ BỔ SUNG:\n" + manualText });
+  }
+
+  try{
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: parts }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    const data = await response.json();
+    if(data.error) throw new Error(data.error.message);
+
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!generatedText) throw new Error("Không nhận được phản hồi từ Gemini.");
+
+    let clean = generatedText.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+
+    const lessonMeta = (toc.lessonsBySubject[currentSubjectId] || []).find(l => l.id === currentLessonId);
+    const lessonObj = {
+      subjectId: currentSubjectId,
+      name: lessonMeta ? lessonMeta.name : '',
+      mindmapMarkdown: parsed.mindmapMarkdown,
+      questions: (parsed.questions || []).map(q => ({ id: uid(), ...q })),
+      createdAt: Date.now()
+    };
+    setStore('lesson:'+currentLessonId, lessonObj);
+    currentLesson = lessonObj;
+    renderMain();
+  }catch(err){
+    console.error(err);
+    status.style.color = 'var(--wrong)';
+    status.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo nội dung. Vui lòng kiểm tra lại mã API Key.');
+    btn.disabled = false;
+  }
+}
+
+/* 6. RENDER MARKMAP: BẬT/XỔ NATIVE 100% NHẠY, MŨI TÊN CHUẨN XÁC THEO VIDEO */
+function renderMindmap(container){
+  let md = currentLesson.mindmapMarkdown || '';
+  
+  if(!md.includes('##') && !md.includes('-')){
+    md = `# ${currentLesson.name}\n## 1. Nội dung chính\n- Bấm "Tạo lại nội dung" để cập nhật.`;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:13.5px; color:var(--muted);">💡 <em>Bấm trực tiếp vào <strong>ô chữ</strong> hoặc <strong>nút mũi tên</strong> để BẬT / XỔ nhánh con.</em></span>
+      <button class="btn ghost small" id="regenBtn">Nạp lại / Thêm tài liệu</button>
+    </div>
+    <div class="mindmap-wrapper" id="mmWrap">
+      <div class="mindmap-toolbar">
+        <button id="expandAllBtn">📂 Mở tất cả nhánh</button>
+        <button id="collapseAllBtn">📁 Thu gọn về mục chính</button>
+        <button id="zoomInBtn">➕ Phóng to</button>
+        <button id="zoomOutBtn">➖ Thu nhỏ</button>
+        <button id="fitBtn">🎯 Căn giữa</button>
+      </div>
+      <svg id="markmapSvg"></svg>
+    </div>
+  `;
+  container.appendChild(wrap);
+
+  setTimeout(() => {
+    try {
+      const { Transformer } = window.markmap;
+      const transformer = new Transformer();
+      const { root } = transformer.transform(md);
+      currentMmRoot = root;
+
+      const svg = document.getElementById('markmapSvg');
+      svg.innerHTML = '';
+
+      // Mặc định thu gọn các nhánh con từ cấp 2 trở đi
+      function setInitialFold(node, depth = 0) {
+        if (node.children && node.children.length > 0) {
+          node.state = {
+            ...node.state,
+            collapsed: depth >= 2
+          };
+          node.children.forEach(c => setInitialFold(c, depth + 1));
+        }
+      }
+      setInitialFold(root, 0);
+
+      // KHỞI TẠO MARKMAP ENGINE
+      currentMmInstance = window.markmap.Markmap.create(svg, {
+        duration: 250,
+        nodeMinHeight: 34,
+        spacingVertical: 14,
+        spacingHorizontal: 110,
+        color: () => '#55685D'
+      }, root);
+
+      // HÀM BẬT/XỔ NATIVE ĐẢM BẢO HOẠT ĐỘNG 100%
+      function toggleNode(nodeData) {
+        if (nodeData && nodeData.data && nodeData.data.children && nodeData.data.children.length > 0) {
+          const currentState = nodeData.data.state && nodeData.data.state.collapsed;
+          nodeData.data.state = {
+            ...nodeData.data.state,
+            collapsed: !currentState
+          };
+          // Gọi trực tiếp hàm setData chuẩn của Markmap để vẽ lại nhánh ngay lập tức
+          currentMmInstance.setData(root);
+          setTimeout(updateToggleButtons, 260);
+        }
+      }
+
+      // HÀM VẼ NÚT MŨI TÊN VÀ GẮN SỰ KIỆN CLICK BẬT/XỔ
+      function updateToggleButtons() {
+        const svgEl = d3.select('#markmapSvg');
+
+        // Xóa hoàn toàn các đường line gạch chân thừa
+        svgEl.selectAll('line').remove();
+
+        svgEl.selectAll('g.markmap-node').each(function(d) {
+          const g = d3.select(this);
+          const hasChildren = d.data && d.data.children && d.data.children.length > 0;
+          const isCollapsed = d.data && d.data.state && d.data.state.collapsed;
+
+          // 1. BẤM TRỰC TIẾP VÀO Ô CHỮ ĐỂ BẬT/XỔ
+          const fo = g.select('foreignObject');
+          if (!fo.empty()) {
+            fo.on('click', (event) => {
+              event.stopPropagation();
+              event.preventDefault();
+              toggleNode(d);
+            });
+          }
+
+          // Xóa nút mũi tên cũ nếu có
+          g.selectAll('.markmap-fold-button').remove();
+
+          // 2. NẾU CÓ NHÁNH CON: VẼ NÚT MŨI TÊN CHUẨN SVG (> HOẶC <) Ở ĐẦU BÊN PHẢI
+          if (hasChildren) {
+            let boxWidth = 140;
+            if (!fo.empty()) {
+              const foNode = fo.node();
+              if (foNode && foNode.getBBox) {
+                boxWidth = foNode.getBBox().width || 140;
+              }
+            }
+
+            const btnGroup = g.append('g')
+              .attr('class', 'markmap-fold-button')
+              .attr('transform', `translate(${boxWidth + 14}, 0)`);
+
+            // Khung vuông nhỏ bo góc cho nút mũi tên
+            btnGroup.append('rect')
+              .attr('x', -9)
+              .attr('y', -9)
+              .attr('width', 18)
+              .attr('height', 18);
+
+            // Đang đóng hiện `>`, Đang mở bung hiện `<` (chuẩn như trong video)
+            btnGroup.append('text')
+              .attr('x', 0)
+              .attr('y', 0)
+              .text(isCollapsed ? '>' : '<');
+
+            // 3. BẤM VÀO NÚT MŨI TÊN ĐỂ BẬT/XỔ
+            btnGroup.on('click', (event) => {
+              event.stopPropagation();
+              event.preventDefault();
+              toggleNode(d);
+            });
+          }
+        });
+      }
+
+      // Kích hoạt cập nhật
+      setTimeout(() => {
+        updateToggleButtons();
+        currentMmInstance.fit();
+      }, 150);
+
+      // CÁC NÚT ĐIỀU KHIỂN TRÊN THANH CÔNG CỤ
+      document.getElementById('zoomInBtn').onclick = () => currentMmInstance.rescale(1.25);
+      document.getElementById('zoomOutBtn').onclick = () => currentMmInstance.rescale(0.8);
+      document.getElementById('fitBtn').onclick = () => currentMmInstance.fit();
+      
+      // Mở tất cả nhánh
+      document.getElementById('expandAllBtn').onclick = () => {
+        function expand(n){
+          if(n.children) {
+            n.state = { ...n.state, collapsed: false };
+            n.children.forEach(expand);
+          }
+        }
+        expand(root);
+        currentMmInstance.setData(root);
+        currentMmInstance.fit();
+        setTimeout(updateToggleButtons, 260);
+      };
+
+      // Thu gọn về cấp 2
+      document.getElementById('collapseAllBtn').onclick = () => {
+        setInitialFold(root, 0);
+        currentMmInstance.setData(root);
+        currentMmInstance.fit();
+        setTimeout(updateToggleButtons, 260);
+      };
+
+    } catch(e) {
+      console.error("Lỗi vẽ Markmap:", e);
+    }
+  }, 100);
+
+  wrap.querySelector('#regenBtn').addEventListener('click', () => {
+    if(!confirm('Bạn có muốn tải lại tài liệu giáo trình cho bài học này không?')) return;
+    currentLesson = null;
+    uploadedFilesQueue = [];
+    renderMain();
+  });
+}
+
+/* 7. TRẮC NGHIỆM PHẢN HỒI TỨC THÌ */
+function renderQuiz(container){
+  const questions = currentLesson.questions || [];
+  if(questions.length === 0){
+    container.innerHTML = '<div class="card">Bài học này chưa có câu hỏi.</div>';
+    return;
+  }
+  if(quiz.done){ renderQuizScore(container, questions); return; }
+
+  const i = quiz.index;
+  const q = questions[i];
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<div class="q-progress">Câu ${i+1} / ${questions.length}</div>`;
+  const box = document.createElement('div');
+  box.className = 'q-box';
+  box.innerHTML = `<div class="q-text"></div><div class="opts"></div>`;
+  box.querySelector('.q-text').textContent = q.question;
+  const optsEl = box.querySelector('.opts');
+  const already = quiz.answers[i];
+
+  q.options.forEach((opt, idx) => {
+    const o = document.createElement('div');
+    o.className = 'opt' + (already !== undefined ? ' disabled' : '');
+    o.innerHTML = `<span class="letter">${'ABCD'[idx]}</span><span></span>`;
+    o.querySelector('span:last-child').textContent = opt;
+
+    if(already !== undefined){
+      if(idx === q.correctIndex) o.classList.add('correct');
+      else if(idx === already && already !== q.correctIndex) o.classList.add('wrong');
+    }
+
+    if(already === undefined){
+      o.addEventListener('click', () => {
+        quiz.answers[i] = idx;
+        renderQuiz(container);
+      });
+    }
+    optsEl.appendChild(o);
+  });
+
+  if(already !== undefined && q.explanation){
+    const ex = document.createElement('div');
+    ex.className = 'explain';
+    ex.innerHTML = `<strong>💡 Giải thích chi tiết:</strong><br>${q.explanation}`;
+    box.appendChild(ex);
+  }
+
+  const nav = document.createElement('div');
+  nav.className = 'q-nav';
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn ghost'; prevBtn.textContent = 'Câu trước'; prevBtn.disabled = i===0;
+  prevBtn.addEventListener('click', () => { quiz.index--; renderQuiz(container); });
+  
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn';
+  nextBtn.textContent = i === questions.length-1 ? 'Xem tổng kết kết quả' : 'Câu tiếp theo';
+  nextBtn.disabled = already === undefined;
+  nextBtn.addEventListener('click', () => {
+    if(i === questions.length-1){
+      quiz.done = true;
+      saveAttempt(questions);
+      renderQuiz(container);
+    } else {
+      quiz.index++; renderQuiz(container);
+    }
+  });
+  nav.appendChild(prevBtn); nav.appendChild(nextBtn);
+  box.appendChild(nav);
+  wrap.appendChild(box);
+  container.appendChild(wrap);
+}
+
+function saveAttempt(questions){
+  const answers = questions.map((q, idx) => ({
+    qid: q.id, question: q.question, chosenIndex: quiz.answers[idx],
+    correctIndex: q.correctIndex, correct: quiz.answers[idx] === q.correctIndex
+  }));
+  const score = answers.filter(a => a.correct).length;
+  const attempt = { date: Date.now(), score, total: questions.length, answers };
+  const prev = getStore('attempts:'+currentLessonId) || [];
+  prev.unshift(attempt);
+  setStore('attempts:'+currentLessonId, prev);
+}
+
+function renderQuizScore(container, questions){
+  const answers = questions.map((q, idx) => ({
+    question: q.question, options: q.options,
+    chosenIndex: quiz.answers[idx], correctIndex: q.correctIndex,
+    correct: quiz.answers[idx] === q.correctIndex, explanation: q.explanation
+  }));
+  const score = answers.filter(a=>a.correct).length;
+  const wrap = document.createElement('div');
+  wrap.className = 'card score-card';
+  wrap.innerHTML = `<div class="score-num">${score}/${questions.length}</div><p style="color:var(--muted)">Số câu trả lời đúng</p>
+    <button class="btn" id="retryBtn">Làm lại bài thi này</button>`;
+  container.appendChild(wrap);
+  wrap.querySelector('#retryBtn').addEventListener('click', () => { 
+    quiz = {index:0, answers:[], started:false, done:false}; 
+    renderQuiz(container); 
+  });
+
+  const revWrap = document.createElement('div');
+  revWrap.className = 'review-list';
+  revWrap.style.marginTop = '20px';
+  answers.forEach((a, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rev-item';
+    item.innerHTML = `
+      <div><span class="tag ${a.correct?'ok':'bad'}">${a.correct ? 'ĐÚNG' : 'SAI'}</span><strong></strong></div>
+      <div style="margin-top:6px;font-size:14px;">Bạn chọn: <em></em>${a.correct? '' : ' — 🎯 Đáp án đúng: <b style="color:var(--correct);">' + a.options[a.correctIndex] + '</b>'}</div>
+      ${a.explanation ? `<div style="margin-top:8px; color:var(--muted); font-size:13.5px;">💡 ${a.explanation}</div>` : ''}
+    `;
+    item.querySelector('strong').textContent = `Câu ${idx+1}: ${a.question}`;
+    item.querySelector('em').textContent = a.chosenIndex !== undefined ? a.options[a.chosenIndex] : '(chưa chọn)';
+    revWrap.appendChild(item);
+  });
+  container.appendChild(revWrap);
+}
+
+/* 8. LỊCH SỬ THI */
+function renderHistory(container){
+  const attempts = getStore('attempts:'+currentLessonId) || [];
+  container.innerHTML = '';
+  if(attempts.length === 0){
+    container.innerHTML = '<div class="card">Chưa có lượt thi nào cho bài học này. Hãy làm bài thi ở tab Trắc nghiệm.</div>';
+    return;
+  }
+  attempts.forEach((att) => {
+    const item = document.createElement('div');
+    item.className = 'hist-item';
+    const d = new Date(att.date);
+    item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} câu đúng</span>`;
+    item.querySelector('span').textContent = d.toLocaleString('vi-VN');
+    item.addEventListener('click', () => renderAttemptDetail(container, att));
+    container.appendChild(item);
+  });
+}
+
+function renderAttemptDetail(container, att){
+  container.innerHTML = `<button class="btn ghost small" id="backBtn" style="margin-bottom:14px;">← Quay lại danh sách lịch sử</button>`;
+  const revWrap = document.createElement('div');
+  revWrap.className = 'review-list';
+  att.answers.forEach((a, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rev-item';
+    item.innerHTML = `<span class="tag ${a.correct?'ok':'bad'}">${a.correct?'ĐÚNG':'SAI'}</span><strong></strong>`;
+    item.querySelector('strong').textContent = `Câu ${idx+1}: ${a.question}`;
+    revWrap.appendChild(item);
+  });
+  container.appendChild(revWrap);
+  container.querySelector('#backBtn').addEventListener('click', () => renderHistory(container));
+}
+</script>
+</body>
+</html>
