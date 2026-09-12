@@ -172,7 +172,7 @@
 </div>
 
 <script>
-/* 0. THUẬT TOÁN SHA-256 THUẦN (HOẠT ĐỘNG TRÊN MỌI THIẾT BỊ / OFFLINE FILE) */
+/* 0. THUẬT TOÁN SHA-256 THUẦN */
 function pureSha256(ascii) {
   function rightRotate(value, amount) { return (value>>>amount) | (value<<(32 - amount)); }
   const mathPow = Math.pow;
@@ -732,7 +732,7 @@ function renderGenerateForm(){
   return wrap;
 }
 
-/* 5. GỌI GEMINI 2.5-FLASH TẠO SƠ ĐỒ VÀ TRẮC NGHIỆM */
+/* 5. GỌI GEMINI TẠO SƠ ĐỒ VÀ TRẮC NGHIỆM */
 async function generateLessonWithGemini(wrap){
   const apiKey = (document.getElementById('apiKeyInput').value || '').replace(/\s+/g, '');
   const textarea = wrap.querySelector('#contentInput');
@@ -804,7 +804,7 @@ YÊU CẦU:
   }
 
   try{
-    const GEMINI_MODEL = 'gemini-2.5-flash';
+    const GEMINI_MODEL = 'gemini-3.6-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
     
     const response = await fetch(endpoint, {
@@ -814,7 +814,7 @@ YÊU CẦU:
         contents: [{ parts: parts }],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.85
+          temperature: 0.75
         }
       })
     });
@@ -850,7 +850,7 @@ YÊU CẦU:
         correctIndex: q.correctIndex,
         explanation: toNFC(q.explanation)
       })),
-      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, base64: f.base64 })),
+      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size })),
       rawNoteText: manualText,
       createdAt: Date.now()
     };
@@ -866,7 +866,7 @@ YÊU CẦU:
   }
 }
 
-/* 6. TẠO LẠI BỘ TRẮC NGHIỆM RIÊNG (TỐI ƯU NHẸ DỰA TRÊN MIND MAP) */
+/* 6. TẠO LẠI BỘ TRẮC NGHIỆM RIÊNG */
 async function regenerateOnlyQuiz(count, level){
   const apiKey = (document.getElementById('apiKeyInput')?.value || '').replace(/\s+/g, '');
   if(!apiKey){
@@ -894,7 +894,6 @@ async function regenerateOnlyQuiz(count, level){
     levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng và ca lâm sàng/thực tế phù hợp với nội dung bài học.";
   }
 
-  // Giới hạn đầu vào để tránh request quá lớn nếu mind map được Gemini tạo quá dài.
   const sourceText = String(currentLesson.mindmapMarkdown || currentLesson.name || '').slice(0, 60000);
   const noteText = String(currentLesson.rawNoteText || '').slice(0, 20000);
 
@@ -939,8 +938,8 @@ YÊU CẦU:
   };
 
   try {
-    const GEMINI_MODEL = 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -1466,7 +1465,7 @@ function renderQuizScore(container, questions){
   container.appendChild(revWrap);
 }
 
-/* 9. REVIEW & LỊCH SỬ THI (CHUẨN GIỜ VIỆT NAM GMT+7) */
+/* 9. REVIEW & LỊCH SỬ THI */
 function renderHistory(container){
   const attempts = getStore('attempts:'+currentLessonId) || [];
   container.innerHTML = '';
@@ -1480,7 +1479,6 @@ function renderHistory(container){
     const d = new Date(att.date);
     item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} câu đúng</span>`;
     
-    // Luôn cố định múi giờ Việt Nam
     item.querySelector('span').textContent = d.toLocaleString('vi-VN', {
       timeZone: 'Asia/Ho_Chi_Minh',
       hour12: false,
