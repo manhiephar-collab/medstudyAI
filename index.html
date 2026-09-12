@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+
 
 <style>
   :root{
@@ -100,4 +100,1263 @@
   .btn:hover{opacity:.9;}
   .btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent);}
   .btn.warm{background:var(--warm);}
-  .btn.small{padding:4px
+  .btn.small{padding:4px 9px; font-size:12px;}
+  .btn:disabled{opacity:.5; cursor:default;}
+  .sidebar-footer{margin-top:auto; padding-top:10px;}
+  .add-subject{display:flex; gap:6px;}
+  .add-subject input{flex:1; padding:8px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px;}
+
+  /* Main */
+  .main{flex:1; min-width:0; padding:24px 36px 60px; max-width:none; width:calc(100% - 300px);}
+  .empty{margin-top:80px; text-align:center; color:var(--muted);}
+  .empty h2{color:var(--ink); font-size:22px;}
+  .lesson-header{margin-bottom:14px;}
+  .eyebrow{color:var(--muted); font-size:13px; margin-bottom:4px; font-weight:600;}
+  .lesson-title{font-size:26px;}
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin:16px 0 20px;}
+  .tab{
+    padding:9px 16px; cursor:pointer; font-size:14px; color:var(--muted);
+    border-bottom:2px solid transparent; margin-bottom:-1px; font-weight:600;
+  }
+  .tab.active{color:var(--ink); border-bottom:2px solid var(--accent); font-weight:700;}
+
+  /* Upload Card */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:0 1px 3px rgba(0,0,0,0.03);}
+  .upload-box{
+    border:2px dashed #B8C2B0; padding:32px 20px; border-radius:8px; text-align:center;
+    background:#FAFCF8; margin-bottom:14px; cursor:pointer; transition:all .2s ease;
+  }
+  .upload-box.dragover{border-color:var(--accent); background:var(--accent-soft);}
+  
+  .file-queue{display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+  .file-chip{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; background:#F0F4ED; border:1px solid var(--line); border-radius:7px;
+    font-size:13px; color:var(--ink);
+  }
+  .file-chip .chip-del{cursor:pointer; color:var(--muted); font-weight:bold; padding:0 4px;}
+  .file-chip .chip-del:hover{color:var(--wrong);}
+
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px; font-weight:600;}
+  .field textarea{
+    width:100%; min-height:90px; resize:vertical; font-size:13.5px;
+    padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff; line-height:1.5;
+  }
+  .field{margin-bottom:16px;}
+  
+  /* Cụm tùy chọn trắc nghiệm */
+  .quiz-options-grid{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;
+    margin-bottom:16px; padding:12px 14px; background:#F8FAF6; border:1px solid var(--line); border-radius:8px;
+  }
+  .quiz-options-grid label{font-size:12.5px; color:var(--muted); font-weight:600; display:block; margin-bottom:5px;}
+  .quiz-options-grid select{
+    width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:6px;
+    font-size:13.5px; background:#fff; color:var(--ink);
+  }
+
+  .status-line{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px;}
+
+  /* MIND MAP D3 CUSTOM TREE */
+  .mindmap-wrapper{
+    border:1px solid #343B42; border-radius:16px; background:#22262A;
+    overflow:hidden; position:relative; box-shadow:0 10px 30px rgba(0,0,0,.22);
+    min-height:820px;
+  }
+  .mindmap-wrapper::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(circle at 18% 50%, rgba(112,121,148,.08), transparent 34%),
+               radial-gradient(circle at 78% 50%, rgba(67,96,78,.07), transparent 38%);
+  }
+  .mindmap-toolbar{
+    position:absolute; top:14px; right:14px; z-index:20; display:flex; gap:6px; flex-wrap:wrap;
+    background:rgba(31,35,39,.84); backdrop-filter:blur(10px); padding:6px; border-radius:10px;
+    border:1px solid rgba(255,255,255,.09); max-width:calc(100% - 28px);
+  }
+  .mindmap-toolbar button{
+    background:#343A3F; color:#EEF2F0; border:1px solid rgba(255,255,255,.08); border-radius:7px;
+    padding:6px 10px; font-size:12px; cursor:pointer; font-weight:600;
+  }
+  .mindmap-toolbar button:hover{background:#465049; transform:translateY(-1px);}
+  #mindmapViewport{width:100%; height:820px; display:block; cursor:grab; touch-action:none; position:relative; z-index:1;}
+  #mindmapViewport:active{cursor:grabbing;}
+  .mm-link{fill:none; stroke:#8997A4; stroke-width:1.55px; opacity:.8; vector-effect:non-scaling-stroke;}
+  .mm-node{cursor:default;}
+  .mm-node-card{stroke:rgba(255,255,255,.075); stroke-width:1px; filter:drop-shadow(0 5px 8px rgba(0,0,0,.16));}
+  .mm-node.depth-0 .mm-node-card{fill:#5B6073;}
+  .mm-node.depth-1 .mm-node-card{fill:#485159;}
+  .mm-node.depth-2 .mm-node-card{fill:#415A49;}
+  .mm-node.depth-3 .mm-node-card{fill:#395241;}
+  .mm-node.depth-4 .mm-node-card{fill:#33493B;}
+  .mm-node-label{fill:#F7F8F7; font-size:13.5px; font-weight:500; pointer-events:none;}
+  .mm-node.depth-0 .mm-node-label{font-size:14.5px; font-weight:700;}
+  .mm-node.depth-1 .mm-node-label{font-size:13.8px; font-weight:600;}
+  .mm-toggle{cursor:pointer;}
+  .mm-toggle circle{fill:#46534F; stroke:rgba(255,255,255,.1); stroke-width:1px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.22));}
+  .mm-toggle:hover circle{fill:#64766F;}
+  .mm-toggle text{fill:#F4F7F5; font-size:12px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none;}
+  .mm-hit{fill:transparent; cursor:pointer;}
+  .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;}
+  .mindmap-help .hint{font-size:13.5px;color:var(--muted);}
+
+  /* Quiz Top Bar */
+  .quiz-top-bar{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+    margin-bottom:14px; padding:10px 14px; background:#F8FAF6; border:1px solid var(--line); border-radius:8px;
+  }
+  .q-progress{font-size:13.5px; color:var(--muted); font-weight:600;}
+  .q-box{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
+  .q-text{font-size:16.5px; margin-bottom:16px; font-weight:600;}
+  .opt{
+    display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--line);
+    border-radius:8px; margin-bottom:9px; cursor:pointer; background:#fff; font-size:14.5px;
+  }
+  .opt:hover{border-color:var(--accent);}
+  .opt.correct{background:var(--correct-soft); border-color:var(--correct);}
+  .opt.wrong{background:var(--wrong-soft); border-color:var(--wrong);}
+  .opt.disabled{cursor:default;}
+  .opt .letter{
+    width:24px; height:24px; border-radius:50%; border:1px solid var(--line); background:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; color:var(--muted);
+    font-weight:700;
+  }
+  .opt.correct .letter{background:var(--correct); border-color:var(--correct); color:#fff;}
+  .opt.wrong .letter{background:var(--wrong); border-color:var(--wrong); color:#fff;}
+  .explain{
+    margin-top:14px; padding:14px 16px; background:var(--warm-soft); border-radius:8px; font-size:14px;
+    border-left:3.5px solid var(--warm); line-height:1.55;
+  }
+  .q-nav{display:flex; justify-content:space-between; margin-top:18px;}
+  .score-card{text-align:center; padding:40px 20px;}
+  .score-num{font-weight:700; font-size:48px; color:var(--accent);}
+  .review-list .rev-item{
+    border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; background:#fff;
+  }
+  .tag{font-size:11px; padding:3px 8px; border-radius:20px; font-weight:600; display:inline-block; margin-right:6px;}
+  .tag.ok{background:var(--correct-soft); color:var(--correct);}
+  .tag.bad{background:var(--wrong-soft); color:var(--wrong);}
+
+  .hist-item{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 14px;
+    border:1px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer; background:#fff;
+  }
+  .hist-item:hover{border-color:var(--accent);}
+  .loader{display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13.5px;}
+  .spinner{
+    width:14px; height:14px; border-radius:50%; border:2px solid var(--line); border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media (max-width:760px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:relative; border-right:none; border-bottom:1px solid var(--line);}
+    .main{padding:20px;}
+    #mindmapViewport{height:600px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <div class="brand"><span class="mark"></span><h1>MedStudy AI</h1></div>
+
+    <div class="api-box">
+      <label>Google Gemini API Key:</label>
+      <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
+    </div>
+
+    <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
+    
+    <div class="sidebar-footer">
+      <div class="add-subject">
+        <input type="text" id="newSubjectInput" placeholder="Tên môn học mới…">
+        <button class="btn" id="addSubjectBtn">Thêm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main" id="main"></div>
+</div>
+
+<script>
+/* 1. STORAGE & TIỆN ÍCH CHUẨN HÓA UNICODE NFC */
+function getStore(key){
+  try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
+  catch(e) { return null; }
+}
+function setStore(key, value){
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e) { return false; }
+}
+function delStore(key){
+  try { localStorage.removeItem(key); } catch(e) {}
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+// Ép về Unicode dựng sẵn (NFC) loại bỏ 100% tình trạng rớt dấu
+function toNFC(str){ return String(str || '').normalize('NFC'); }
+
+/* 2. APP STATE */
+let toc = { subjects: [], lessonsBySubject: {} };
+let openSubjects = new Set();
+let currentSubjectId = null;
+let currentLessonId = null;
+let currentLesson = null;
+let activeTab = 'mindmap';
+let quiz = { index:0, answers:[], started:false, done:false };
+
+let uploadedFilesQueue = [];
+let currentMmInstance = null;
+let currentMmRoot = null;
+
+function init(){
+  const savedKey = localStorage.getItem('gemini_api_key');
+  if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
+  document.getElementById('apiKeyInput').addEventListener('change', (e) => {
+    localStorage.setItem('gemini_api_key', e.target.value.trim());
+  });
+
+  const savedToc = getStore('toc');
+  if(savedToc) toc = savedToc;
+  renderSidebar();
+  renderMain();
+}
+try { init(); } catch (err) {
+  console.error('MedStudy init error:', err);
+  document.body.innerHTML = `<div style="font-family:Arial,sans-serif;padding:32px;color:#8B1E1E;background:#FFF7F6;min-height:100vh"><h2>MedStudy AI không thể khởi động</h2><p>${String(err && err.message ? err.message : err)}</p><p>Hãy mở DevTools → Console để xem chi tiết.</p></div>`;
+}
+
+/* 3. SIDEBAR */
+function renderSidebar(){
+  const list = document.getElementById('subjectList');
+  list.innerHTML = '';
+  if(toc.subjects.length === 0){
+    const p = document.createElement('div');
+    p.style.cssText = 'color:var(--muted); font-size:13px; padding:8px 4px;';
+    p.textContent = toNFC('Chưa có môn học nào. Thêm môn ở bên dưới để bắt đầu.');
+    list.appendChild(p);
+  }
+  toc.subjects.forEach(subj => {
+    const block = document.createElement('div');
+    block.className = 'subject-block';
+
+    const head = document.createElement('div');
+    head.className = 'subject-head' + (openSubjects.has(subj.id) ? ' open' : '');
+    head.innerHTML = `
+      <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+        <span class="chev">▶</span><span class="name"></span>
+      </span>
+      <div class="action-btns">
+        <span class="action-btn edit-subj" title="Đổi tên môn">✎</span>
+        <span class="action-btn del del-subj" title="Xoá môn">✕</span>
+      </div>`;
+    head.querySelector('.name').textContent = toNFC(subj.name);
+
+    head.addEventListener('click', (e) => {
+      if(e.target.closest('.action-btns')) return;
+      if(openSubjects.has(subj.id)) openSubjects.delete(subj.id); else openSubjects.add(subj.id);
+      renderSidebar();
+    });
+
+    head.querySelector('.edit-subj').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const newName = prompt('Nhập tên môn học mới:', subj.name);
+      if(newName && newName.trim() && newName.trim() !== subj.name){
+        subj.name = toNFC(newName.trim());
+        setStore('toc', toc);
+        renderSidebar();
+        renderMain();
+      }
+    });
+
+    head.querySelector('.del-subj').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(!confirm(`Xoá môn "${subj.name}" và toàn bộ bài học bên trong?`)) return;
+      const lessons = toc.lessonsBySubject[subj.id] || [];
+      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); }
+      delete toc.lessonsBySubject[subj.id];
+      toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
+      setStore('toc', toc);
+      if(currentSubjectId === subj.id){ currentSubjectId=null; currentLessonId=null; currentLesson=null; }
+      renderSidebar(); renderMain();
+    });
+    block.appendChild(head);
+
+    if(openSubjects.has(subj.id)){
+      const lessonList = document.createElement('div');
+      lessonList.className = 'lesson-list';
+      const lessons = toc.lessonsBySubject[subj.id] || [];
+      lessons.forEach(lesson => {
+        const item = document.createElement('div');
+        item.className = 'lesson-item' + (currentLessonId === lesson.id ? ' active' : '');
+        item.innerHTML = `
+          <span class="lname" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+          <div class="action-btns">
+            <span class="action-btn edit-lesson" title="Đổi tên bài">✎</span>
+            <span class="action-btn del del-lesson" title="Xoá bài">✕</span>
+          </div>`;
+        item.querySelector('.lname').textContent = toNFC(lesson.name);
+
+        item.querySelector('.edit-lesson').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newName = prompt('Nhập tên bài học mới:', lesson.name);
+          if(newName && newName.trim() && newName.trim() !== lesson.name){
+            lesson.name = toNFC(newName.trim());
+            const savedLesson = getStore('lesson:' + lesson.id);
+            if(savedLesson){
+              savedLesson.name = lesson.name;
+              setStore('lesson:' + lesson.id, savedLesson);
+              if(currentLessonId === lesson.id){ currentLesson = savedLesson; }
+            }
+            setStore('toc', toc);
+            renderSidebar();
+            renderMain();
+          }
+        });
+
+        item.querySelector('.del-lesson').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(!confirm(`Xoá bài "${lesson.name}"?`)) return;
+          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id);
+          toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
+          setStore('toc', toc);
+          if(currentLessonId === lesson.id){ currentLessonId=null; currentLesson=null; }
+          renderSidebar(); renderMain();
+        });
+
+        item.addEventListener('click', (e) => {
+          if(e.target.closest('.action-btns')) return;
+          currentSubjectId = subj.id;
+          currentLessonId = lesson.id;
+          activeTab = 'mindmap';
+          quiz = { index:0, answers:[], started:false, done:false };
+          uploadedFilesQueue = [];
+          currentLesson = getStore('lesson:'+lesson.id);
+          renderSidebar(); renderMain();
+        });
+
+        lessonList.appendChild(item);
+      });
+
+      const addRow = document.createElement('div');
+      addRow.className = 'add-row';
+      addRow.innerHTML = `<input type="text" placeholder="Tên bài học…"><button class="btn small">Thêm</button>`;
+      const inp = addRow.querySelector('input');
+      addRow.querySelector('button').addEventListener('click', () => addLesson(subj.id, inp));
+      inp.addEventListener('keydown', (e) => { if(e.key === 'Enter') addLesson(subj.id, inp); });
+      lessonList.appendChild(addRow);
+      block.appendChild(lessonList);
+    }
+    list.appendChild(block);
+  });
+}
+
+function addLesson(subjectId, inputEl){
+  const name = toNFC(inputEl.value.trim());
+  if(!name) return;
+  const id = uid();
+  if(!toc.lessonsBySubject[subjectId]) toc.lessonsBySubject[subjectId] = [];
+  toc.lessonsBySubject[subjectId].push({ id, name, createdAt: Date.now() });
+  setStore('toc', toc);
+  inputEl.value = '';
+  currentSubjectId = subjectId;
+  currentLessonId = id;
+  currentLesson = null;
+  uploadedFilesQueue = [];
+  activeTab = 'mindmap';
+  renderSidebar(); renderMain();
+}
+
+document.getElementById('addSubjectBtn').addEventListener('click', addSubjectHandler);
+document.getElementById('newSubjectInput').addEventListener('keydown', e => { if(e.key==='Enter') addSubjectHandler(); });
+function addSubjectHandler(){
+  const inp = document.getElementById('newSubjectInput');
+  const name = toNFC(inp.value.trim());
+  if(!name) return;
+  const id = uid();
+  toc.subjects.push({ id, name });
+  toc.lessonsBySubject[id] = [];
+  openSubjects.add(id);
+  setStore('toc', toc);
+  inp.value = '';
+  renderSidebar();
+}
+
+/* 4. MAIN */
+function renderMain(){
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  if(!currentLessonId){
+    main.innerHTML = `
+      <div class="empty">
+        <h2>${toNFC('Chọn hoặc tạo một bài học để bắt đầu ôn tập')}</h2>
+        <p>${toNFC('Chọn môn học bên trái, thêm bài học và nạp file giáo trình PDF.')}</p>
+      </div>`;
+    return;
+  }
+
+  const subj = toc.subjects.find(s => s.id === currentSubjectId);
+  const lessonMeta = (toc.lessonsBySubject[currentSubjectId] || []).find(l => l.id === currentLessonId);
+
+  const header = document.createElement('div');
+  header.className = 'lesson-header';
+  header.innerHTML = `<div class="eyebrow"></div><h2 class="lesson-title"></h2>`;
+  header.querySelector('.eyebrow').textContent = toNFC(subj ? subj.name : '');
+  header.querySelector('.lesson-title').textContent = toNFC(lessonMeta ? lessonMeta.name : '');
+  main.appendChild(header);
+
+  if(!currentLesson){
+    main.appendChild(renderGenerateForm());
+    return;
+  }
+
+  const tabs = document.createElement('div');
+  tabs.className = 'tabs';
+  [['mindmap','Sơ đồ Tư duy (Bật/Xổ)'],['quiz','Trắc nghiệm'],['history','Lịch sử ôn thi']].forEach(([key,label]) => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (activeTab===key ? ' active' : '');
+    t.textContent = toNFC(label);
+    t.addEventListener('click', () => { 
+      activeTab = key; 
+      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false}; } 
+      renderMain(); 
+    });
+    tabs.appendChild(t);
+  });
+  main.appendChild(tabs);
+
+  const body = document.createElement('div');
+  body.id = 'tabBody';
+  main.appendChild(body);
+
+  if(activeTab === 'mindmap') renderMindmap(body);
+  else if(activeTab === 'quiz') renderQuiz(body);
+  else renderHistory(body);
+}
+
+function renderGenerateForm(){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.innerHTML = `
+    <div class="upload-box" id="dropArea">
+      <p style="margin:0 0 6px; font-weight:600; font-size:16px;">📄 Kéo thả một hoặc NHIỀU file PDF giáo trình vào đây</p>
+      <span style="font-size:13px; color:var(--muted);">hoặc bấm vào khung này để chọn cùng lúc nhiều file từ máy tính</span>
+      <input type="file" id="pdfInput" accept="application/pdf" multiple style="display:none;">
+    </div>
+    <div class="file-queue" id="fileQueue"></div>
+
+    <div class="quiz-options-grid">
+      <div>
+        <label for="quizCountSelect">Số lượng câu trắc nghiệm:</label>
+        <select id="quizCountSelect">
+          <option value="10">10 câu (Ôn nhanh)</option>
+          <option value="15" selected>15 câu (Chuẩn)</option>
+          <option value="20">20 câu (Bao quát)</option>
+          <option value="30">30 câu (Toàn diện)</option>
+          <option value="40">40 câu (Đề thi thử sâu)</option>
+        </select>
+      </div>
+      <div>
+        <label for="quizLevelSelect">Định hướng đề thi / Độ khó:</label>
+        <select id="quizLevelSelect">
+          <option value="standard" selected>Cân bằng (Đầy đủ lý thuyết & công thức)</option>
+          <option value="hard">Nâng cao (Phân biệt dễ nhầm lẫn, bẫy trắc nghiệm)</option>
+          <option value="clinical">Thực hành &amp; Ca tình huống (Ứng dụng thực tế)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ghi chú bổ sung (tuỳ chọn):</label>
+      <textarea id="contentInput" placeholder="Nhập thêm ghi chú, phạm vi trọng tâm thi hoặc dán nội dung bổ sung nếu có…"></textarea>
+    </div>
+    <button class="btn warm" id="genBtn">Tạo Sơ đồ Đồ họa &amp; Bộ đề Trắc nghiệm</button>
+    <div class="status-line" id="genStatus"></div>
+  `;
+
+  const pdfInput = wrap.querySelector('#pdfInput');
+  const dropArea = wrap.querySelector('#dropArea');
+  const queueEl = wrap.querySelector('#fileQueue');
+  const textarea = wrap.querySelector('#contentInput');
+  const status = wrap.querySelector('#genStatus');
+
+  function renderQueueList(){
+    queueEl.innerHTML = '';
+    if(uploadedFilesQueue.length > 0){
+      uploadedFilesQueue.forEach((fileObj, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        const info = document.createElement('span');
+        info.append('📕 ');
+        const strong = document.createElement('strong');
+        strong.textContent = toNFC(fileObj.name);
+        info.appendChild(strong);
+        info.append(` (${Math.round(fileObj.size/1024)} KB)`);
+        const del = document.createElement('span');
+        del.className = 'chip-del'; del.title = 'Xoá file này'; del.textContent = '✕';
+        chip.append(info, del);
+        del.addEventListener('click', () => {
+          uploadedFilesQueue.splice(idx, 1);
+          renderQueueList();
+        });
+        queueEl.appendChild(chip);
+      });
+      status.textContent = toNFC(`Đã sẵn sàng phân tích ${uploadedFilesQueue.length} file PDF!`);
+      status.style.color = 'var(--correct)';
+    } else {
+      status.textContent = '';
+    }
+  }
+
+  async function processFiles(filesList){
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
+    const MAX_FILES = 6;
+    const allPdf = Array.from(filesList).filter(f => f.type === "application/pdf" || f.name.toLowerCase().endsWith('.pdf'));
+    const validFiles = allPdf.filter(f => f.size <= MAX_FILE_SIZE).slice(0, Math.max(0, MAX_FILES - uploadedFilesQueue.length));
+    if(validFiles.length === 0){
+      alert("Không có PDF hợp lệ để thêm (tối đa 6 file, mỗi file ≤ 20 MB).");
+      return;
+    }
+    status.innerHTML = `<span class="loader"><span class="spinner"></span> Đang nạp ${validFiles.length} file PDF vào bộ nhớ...</span>`;
+    
+    for (const file of validFiles) {
+      if(!uploadedFilesQueue.some(item => item.name === file.name && item.size === file.size)){
+        await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            uploadedFilesQueue.push({
+              name: file.name,
+              size: file.size,
+              base64: e.target.result.split(',')[1]
+            });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    }
+    renderQueueList();
+  }
+
+  dropArea.addEventListener('click', () => pdfInput.click());
+  pdfInput.addEventListener('change', (e) => { if(e.target.files.length) processFiles(e.target.files); });
+
+  ['dragenter', 'dragover'].forEach(name => {
+    dropArea.addEventListener(name, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropArea.classList.add('dragover');
+    }, false);
+  });
+  ['dragleave', 'drop'].forEach(name => {
+    dropArea.addEventListener(name, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropArea.classList.remove('dragover');
+    }, false);
+  });
+  dropArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if(dt && dt.files.length){ processFiles(dt.files); }
+  }, false);
+
+  wrap.querySelector('#genBtn').addEventListener('click', () => generateLessonWithGemini(wrap));
+  return wrap;
+}
+
+/* 5. GỌI GEMINI TẠO SƠ ĐỒ VÀ BỘ ĐỀ TRẮC NGHIỆM */
+async function generateLessonWithGemini(wrap){
+  const apiKey = (document.getElementById('apiKeyInput').value || '').trim();
+  const textarea = wrap.querySelector('#contentInput');
+  const status = wrap.querySelector('#genStatus');
+  const btn = wrap.querySelector('#genBtn');
+  const manualText = textarea.value.trim();
+
+  const numQuestions = parseInt(document.getElementById('quizCountSelect')?.value || '15', 10);
+  const quizLevel = document.getElementById('quizLevelSelect')?.value || 'standard';
+
+  if(!apiKey){
+    alert("Vui lòng dán Google Gemini API Key ở khung bên trái trước.");
+    return;
+  }
+  
+  if(uploadedFilesQueue.length === 0 && manualText.length < 50){
+    status.textContent = 'Vui lòng nạp ít nhất một file PDF hoặc dán nội dung giáo trình.';
+    status.style.color = 'var(--wrong)';
+    return;
+  }
+
+  btn.disabled = true;
+  status.style.color = 'var(--muted)';
+  status.innerHTML = `<span class="loader"><span class="spinner"></span> AI đang phân tích tài liệu và dựng ngân hàng ${numQuestions} câu trắc nghiệm...</span>`;
+
+  let levelInstruction = "Câu hỏi bao quát toàn diện các kiến thức trọng tâm, định luật, công thức và thông số kỹ thuật.";
+  if(quizLevel === 'hard'){
+    levelInstruction = "Tập trung vào các câu hỏi phân biệt chi tiết dễ nhầm lẫn, các bẫy trắc nghiệm lý thuyết và câu hỏi suy luận so sánh.";
+  } else if(quizLevel === 'clinical'){
+    levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng xử lý kết quả đo lường, ca định lượng/định tính thực tế trong phòng kiểm nghiệm/dược lâm sàng.";
+  }
+
+  const promptText = `Bạn là chuyên gia thiết kế bản đồ tư duy và ngân hàng đề thi Y Dược học chuyên sâu.
+Nhiệm vụ: Đọc kỹ tài liệu và trả về DUY NHẤT một đối tượng JSON hợp lệ (không dùng backtick \`\`\`json, không lời dẫn ngoài).
+
+CẤU TRÚC BẮT BUỘC:
+{
+  "mindmapMarkdown": "# Tên chủ đề chính\\n## 1. Nhánh lớn 1\\n### Nhánh con 1.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n### Nhánh con 1.2\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n## 2. Nhánh lớn 2\\n### Nhánh con 2.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2",
+  "questions": [
+    {
+      "question": "Nội dung câu hỏi trắc nghiệm?",
+      "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
+      "correctIndex": 0,
+      "explanation": "Giải thích chi tiết tại sao đúng và tại sao các phương án khác sai"
+    }
+  ]
+}
+
+YÊU CẦU:
+1. SƠ ĐỒ TƯ DUY: Phân cấp rõ ràng bằng Markdown (#, ##, ###, -), súc tích, dễ nhớ.
+- Mỗi node phải NGẮN, ưu tiên 3–10 từ; KHÔNG nhét cả đoạn văn vào một node.
+- ## là chủ đề lớn; ### là nhóm ý; dấu - chỉ chứa một ý cốt lõi.
+- Tối đa 4–6 nhánh chính; mỗi nhóm tối đa 3–6 ý con để sơ đồ thoáng, dễ bật/xổ.
+2. TRẮC NGHIỆM:
+- Soạn ĐÚNG CHÍNH XÁC ${numQuestions} câu hỏi trắc nghiệm mới, đa dạng góc nhìn, KHÔNG trùng lặp.
+- Định hướng đề thi: ${levelInstruction}
+- Mã ngẫu nhiên phiên làm việc: ${Date.now()}`;
+
+  let parts = [{ text: promptText }];
+  if(uploadedFilesQueue.length > 0){
+    uploadedFilesQueue.forEach(f => {
+      parts.push({
+        inline_data: {
+          mime_type: "application/pdf",
+          data: f.base64
+        }
+      });
+    });
+  }
+  if(manualText){
+    parts.push({ text: "GHI CHÚ BỔ SUNG:\n" + manualText });
+  }
+
+  try{
+    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: parts }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.85
+        }
+      })
+    });
+
+    const data = await response.json();
+    if(data.error) throw new Error(data.error.message);
+
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!generatedText) throw new Error("Không nhận được phản hồi từ Gemini.");
+
+    let clean = generatedText.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+
+    if(typeof parsed.mindmapMarkdown !== 'string' || !Array.isArray(parsed.questions)){
+      throw new Error('Gemini trả về dữ liệu không đúng cấu trúc yêu cầu.');
+    }
+    parsed.questions = parsed.questions.filter(q =>
+      q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 &&
+      Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
+    );
+
+    const lessonMeta = (toc.lessonsBySubject[currentSubjectId] || []).find(l => l.id === currentLessonId);
+    const lessonObj = {
+      subjectId: currentSubjectId,
+      name: toNFC(lessonMeta ? lessonMeta.name : ''),
+      mindmapMarkdown: toNFC(parsed.mindmapMarkdown),
+      questions: (parsed.questions || []).map(q => ({
+        id: uid(),
+        question: toNFC(q.question),
+        options: q.options.map(opt => toNFC(opt)),
+        correctIndex: q.correctIndex,
+        explanation: toNFC(q.explanation)
+      })),
+      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, base64: f.base64 })),
+      rawNoteText: manualText,
+      createdAt: Date.now()
+    };
+    setStore('lesson:'+currentLessonId, lessonObj);
+    currentLesson = lessonObj;
+    renderMain();
+  }catch(err){
+    console.error(err);
+    status.style.color = 'var(--wrong)';
+    status.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo nội dung. Vui lòng kiểm tra lại mã API Key.');
+    btn.disabled = false;
+  }
+}
+
+/* 6. TẠO LẠI RIÊNG BỘ TRẮC NGHIỆM */
+async function regenerateOnlyQuiz(count, level){
+  const apiKey = (document.getElementById('apiKeyInput').value || '').trim();
+  if(!apiKey){
+    alert("Vui lòng kiểm tra mã Gemini API Key!");
+    return;
+  }
+  if(!currentLesson){ return; }
+
+  const statusEl = document.getElementById('quizRegenStatus');
+  const regenBtn = document.getElementById('regenQuizBtn');
+  if(regenBtn) regenBtn.disabled = true;
+  if(statusEl) statusEl.innerHTML = `<span class="loader"><span class="spinner"></span> Đang tạo bộ ${count} câu hỏi trắc nghiệm mới...</span>`;
+
+  let levelInstruction = "Câu hỏi bao quát toàn diện các kiến thức trọng tâm, định luật, công thức và thông số kỹ thuật.";
+  if(level === 'hard'){
+    levelInstruction = "Tập trung vào các câu hỏi phân biệt chi tiết dễ nhầm lẫn, các bẫy trắc nghiệm lý thuyết và câu hỏi suy luận so sánh.";
+  } else if(level === 'clinical'){
+    levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng xử lý kết quả đo lường, ca định lượng/định tính thực tế trong phòng kiểm nghiệm/dược lâm sàng.";
+  }
+
+  const promptText = `Bạn là chuyên gia soạn thảo đề thi Y Dược học chuyên sâu.
+Nhiệm vụ: Dựa vào tài liệu đính kèm, soạn MỘT BỘ ĐỀ TRẮC NGHIỆM MỚI TOÀN DIỆN, ĐỔI MỚI GÓC NHÌN, KHÔNG LẶP LẠI CÂU CŨ.
+
+TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙNG BACKTICK \`\`\`json, KHÔNG LỜI DẪN):
+{
+  "questions": [
+    {
+      "question": "Nội dung câu hỏi trắc nghiệm?",
+      "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
+      "correctIndex": 0,
+      "explanation": "Giải thích chi tiết tại sao đúng và tại sao các phương án khác sai"
+    }
+  ]
+}
+
+YÊU CẦU:
+- Số lượng: ĐÚNG CHÍNH XÁC ${count} câu hỏi trắc nghiệm.
+- Định hướng độ khó: ${levelInstruction}
+- Mã ngẫu nhiên tránh trùng lặp: ${Date.now()}`;
+
+  let parts = [{ text: promptText }];
+  const sources = currentLesson.rawPdfSources || [];
+  if(sources.length > 0){
+    sources.forEach(f => {
+      parts.push({
+        inline_data: {
+          mime_type: "application/pdf",
+          data: f.base64
+        }
+      });
+    });
+  } else if(currentLesson.mindmapMarkdown){
+    parts.push({ text: "NỘI DUNG GIÁO TRÌNH TÓM TẮT:\n" + currentLesson.mindmapMarkdown });
+  }
+
+  if(currentLesson.rawNoteText){
+    parts.push({ text: "GHI CHÚ BỔ SUNG:\n" + currentLesson.rawNoteText });
+  }
+
+  try{
+    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: parts }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.88
+        }
+      })
+    });
+
+    const data = await response.json();
+    if(data.error) throw new Error(data.error.message);
+
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!generatedText) throw new Error("Không nhận được phản hồi từ Gemini.");
+
+    let clean = generatedText.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+
+    if(!Array.isArray(parsed.questions)){
+      throw new Error('Dữ liệu câu hỏi không hợp lệ.');
+    }
+
+    const cleanQuestions = parsed.questions.filter(q =>
+      q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 &&
+      Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
+    );
+
+    currentLesson.questions = cleanQuestions.map(q => ({
+      id: uid(),
+      question: toNFC(q.question),
+      options: q.options.map(opt => toNFC(opt)),
+      correctIndex: q.correctIndex,
+      explanation: toNFC(q.explanation)
+    }));
+    setStore('lesson:'+currentLessonId, currentLesson);
+    
+    quiz = { index:0, answers:[], started:false, done:false };
+    renderMain();
+  }catch(err){
+    console.error(err);
+    if(statusEl){
+      statusEl.style.color = 'var(--wrong)';
+      statusEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo mới câu hỏi.');
+    }
+    if(regenBtn) regenBtn.disabled = false;
+  }
+}
+
+/* 7. MIND MAP D3 CUSTOM TREE */
+function renderMindmap(container){
+  let md = currentLesson.mindmapMarkdown || '';
+  if(!md.includes('##') && !md.includes('-')){
+    md = `# ${currentLesson.name}\n## 1. Nội dung chính\n- Bấm "Nạp lại / Thêm tài liệu" để cập nhật.`;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div class="mindmap-help">
+      <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ. Kéo nền để di chuyển sơ đồ.</em></span>
+      <button class="btn ghost small" id="regenBtn">Nạp lại / Thêm tài liệu</button>
+    </div>
+    <div class="mindmap-wrapper" id="mmWrap">
+      <div class="mindmap-toolbar">
+        <button id="expandAllBtn">📂 Mở tất cả</button>
+        <button id="collapseAllBtn">📁 Thu gọn</button>
+        <button id="zoomInBtn" title="Phóng to">＋</button>
+        <button id="zoomOutBtn" title="Thu nhỏ">−</button>
+        <button id="fitBtn">◎ Căn giữa</button>
+      </div>
+      <svg id="mindmapViewport" role="img" aria-label="Sơ đồ tư duy tương tác"></svg>
+    </div>`;
+  container.appendChild(wrap);
+
+  function markdownToTree(markdown){
+    const lines = markdown.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    let root = { name: toNFC(currentLesson.name || 'Chủ đề'), children: [], depth:0 };
+    let h2 = null, h3 = null;
+    for(const line of lines){
+      if(/^#\s+/.test(line) && !/^##/.test(line)){
+        root.name = toNFC(line.replace(/^#\s+/, '').trim()) || root.name;
+      } else if(/^##\s+/.test(line) && !/^###/.test(line)){
+        h2 = { name: toNFC(line.replace(/^##\s+/, '').trim()), children: [], depth:1, parent:root };
+        root.children.push(h2); h3 = null;
+      } else if(/^###\s+/.test(line)){
+        if(!h2){ h2 = {name:'Nội dung',children:[],depth:1,parent:root}; root.children.push(h2); }
+        h3 = { name: toNFC(line.replace(/^###\s+/, '').trim()), children: [], depth:2, parent:h2 };
+        h2.children.push(h3);
+      } else if(/^[-*+]\s+/.test(line)){
+        const parent = h3 || h2 || root;
+        parent.children.push({ name: toNFC(line.replace(/^[-*+]\s+/, '').trim()), children: [], depth:parent.depth+1, parent });
+      }
+    }
+    return root;
+  }
+
+  const root = markdownToTree(md);
+  let idCounter = 0;
+  (function assignIds(n){ n.__id = 'mm_' + (++idCounter); n.children.forEach(assignIds); })(root);
+
+  // Mặc định mở vừa đủ để sơ đồ rõ như mẫu: hiện toàn bộ nhánh chính,
+  // mở nhánh chính đầu tiên sâu hơn, các nhánh còn lại giữ gọn.
+  (function initExpanded(n){
+    n.expanded = false;
+    if(n.depth === 0) n.expanded = true;
+    if(n.depth === 1 && n === root.children[0]) n.expanded = true;
+    if(n.depth === 2 && n.parent === root.children[0] && n.parent.children.indexOf(n) < 2) n.expanded = true;
+    n.children.forEach(initExpanded);
+  })(root);
+
+  const svg = wrap.querySelector('#mindmapViewport');
+  const NS = 'http://www.w3.org/2000/svg';
+  const scene = document.createElementNS(NS,'g');
+  const linksLayer = document.createElementNS(NS,'g');
+  const nodesLayer = document.createElementNS(NS,'g');
+  scene.append(linksLayer,nodesLayer); svg.appendChild(scene);
+
+  const measure = document.createElement('canvas').getContext('2d');
+  const CARD_H = 38;
+  const GAP_Y = 18;
+  const GAP_X = 68;
+  const TOGGLE_GAP = 19;
+  const PADDING_X = 14;
+  const MAX_W = {0:360,1:260,2:260,3:420,4:420};
+  const MIN_W = {0:220,1:160,2:125,3:120,4:120};
+
+  let scale = 0.96, tx = 0, ty = 0;
+  let didInitialCenter = false;
+
+  function fontForDepth(depth){
+    if(depth === 0) return '700 14.5px "Be Vietnam Pro", Arial, sans-serif';
+    if(depth === 1) return '600 13.8px "Be Vietnam Pro", Arial, sans-serif';
+    return '500 13.3px "Be Vietnam Pro", Arial, sans-serif';
+  }
+
+  function textMetrics(node){
+    measure.font = fontForDepth(node.depth);
+    const maxW = MAX_W[Math.min(node.depth,4)] || 420;
+    const minW = MIN_W[Math.min(node.depth,4)] || 120;
+    const full = String(node.name || '');
+    const natural = measure.measureText(full).width + PADDING_X*2;
+    const width = Math.max(minW, Math.min(maxW, natural));
+    let label = full;
+    if(natural > maxW){
+      const allowed = maxW - PADDING_X*2;
+      while(label.length > 2 && measure.measureText(label + '…').width > allowed) label = label.slice(0,-1);
+      label = label.replace(/[\s,;:.!?-]+$/,'') + '…';
+    }
+    return {width,label};
+  }
+
+  function visibleChildren(n){ return n.expanded ? n.children : []; }
+  function flattenVisible(){
+    const nodes=[];
+    (function walk(n){ nodes.push(n); visibleChildren(n).forEach(walk); })(root);
+    return nodes;
+  }
+
+  function layout(){
+    const visible = flattenVisible();
+    visible.forEach(n => Object.assign(n, textMetrics(n)));
+
+    // Tính Y theo lá để cha luôn nằm giữa cụm con.
+    let cursorY = 0;
+    function assignY(n){
+      const kids = visibleChildren(n);
+      if(!kids.length){
+        n.y = cursorY;
+        cursorY += CARD_H + GAP_Y;
+      } else {
+        kids.forEach(assignY);
+        n.y = (kids[0].y + kids[kids.length-1].y)/2;
+      }
+    }
+    assignY(root);
+
+    // X theo cột, dùng node rộng nhất của cột trước để không đè lên nhau.
+    const maxDepth = Math.max(...visible.map(n=>n.depth));
+    const depthMax = [];
+    for(let d=0; d<=maxDepth; d++){
+      depthMax[d] = Math.max(...visible.filter(n=>n.depth===d).map(n=>n.width), 120);
+    }
+    const depthX=[0];
+    for(let d=1; d<=maxDepth; d++) depthX[d] = depthX[d-1] + depthMax[d-1] + GAP_X + TOGGLE_GAP;
+    visible.forEach(n => n.x = depthX[n.depth] || 0);
+    return visible;
+  }
+
+  function svgEl(tag, attrs={}){
+    const el=document.createElementNS(NS,tag);
+    for(const [k,v] of Object.entries(attrs)) el.setAttribute(k,String(v));
+    return el;
+  }
+
+  function linkPath(a,b){
+    const sx = a.x + a.width + (a.children.length ? TOGGLE_GAP+8 : 8);
+    const sy = a.y;
+    const tx2 = b.x;
+    const ty2 = b.y;
+    const bend = Math.max(34,(tx2-sx)*0.52);
+    return `M${sx},${sy} C${sx+bend},${sy} ${tx2-bend},${ty2} ${tx2},${ty2}`;
+  }
+
+  function applyTransform(){ scene.setAttribute('transform',`translate(${tx} ${ty}) scale(${scale})`); }
+
+  function render({preserveView=true}={}){
+    const visible = layout();
+    linksLayer.replaceChildren();
+    nodesLayer.replaceChildren();
+
+    for(const n of visible){
+      if(n.parent && visible.includes(n.parent)){
+        linksLayer.appendChild(svgEl('path',{class:'mm-link',d:linkPath(n.parent,n)}));
+      }
+    }
+
+    for(const n of visible){
+      const g=svgEl('g',{class:`mm-node depth-${Math.min(n.depth,4)}`,transform:`translate(${n.x} ${n.y-CARD_H/2})`});
+      const rect=svgEl('rect',{class:'mm-node-card',rx:7,ry:7,width:n.width,height:CARD_H});
+      const text=svgEl('text',{class:'mm-node-label',x:PADDING_X,y:24}); text.textContent=n.label;
+      const title=svgEl('title'); title.textContent=n.name;
+      g.append(rect,text,title);
+
+      // Toàn bộ ô chữ có thể bật/xổ.
+      if(n.children.length){
+        const hit=svgEl('rect',{class:'mm-hit',x:0,y:0,width:n.width,height:CARD_H});
+        hit.addEventListener('click',e=>{e.stopPropagation(); n.expanded=!n.expanded; render();});
+        g.appendChild(hit);
+        const tg=svgEl('g',{class:'mm-toggle',transform:`translate(${n.width+TOGGLE_GAP} ${CARD_H/2})`});
+        const c=svgEl('circle',{r:9});
+        const tt=svgEl('text',{x:0,y:0.5}); tt.textContent=n.expanded?'‹':'›';
+        tg.append(c,tt);
+        tg.addEventListener('click',e=>{e.stopPropagation(); n.expanded=!n.expanded; render();});
+        g.appendChild(tg);
+      }
+      nodesLayer.appendChild(g);
+    }
+    applyTransform();
+    if(!preserveView || !didInitialCenter){ centerOnRoot(); didInitialCenter=true; }
+  }
+
+  function centerOnRoot(){
+    const w=svg.clientWidth || 1000, h=svg.clientHeight || 820;
+    scale = Math.max(.82, Math.min(1.02, scale));
+    tx = Math.max(42,w*0.08) - root.x*scale;
+    ty = h/2 - root.y*scale;
+    applyTransform();
+  }
+
+  function zoomBy(factor){
+    const w=svg.clientWidth/2, h=svg.clientHeight/2;
+    const old=scale;
+    scale=Math.max(.55,Math.min(2.2,scale*factor));
+    tx = w - (w-tx)*(scale/old);
+    ty = h - (h-ty)*(scale/old);
+    applyTransform();
+  }
+
+  // Pan + wheel zoom, không cần thư viện ngoài => ổn định khi public GitHub Pages.
+  let dragging=false,lastX=0,lastY=0;
+  svg.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener('pointermove',e=>{ if(!dragging)return; tx+=e.clientX-lastX; ty+=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; applyTransform(); });
+  svg.addEventListener('pointerup',()=>dragging=false);
+  svg.addEventListener('pointercancel',()=>dragging=false);
+  svg.addEventListener('wheel',e=>{ e.preventDefault(); const rect=svg.getBoundingClientRect(); const mx=e.clientX-rect.left, my=e.clientY-rect.top; const old=scale; const factor=e.deltaY<0?1.09:0.92; scale=Math.max(.55,Math.min(2.2,scale*factor)); tx=mx-(mx-tx)*(scale/old); ty=my-(my-ty)*(scale/old); applyTransform(); },{passive:false});
+
+  function setExpandedRec(n,value){ n.expanded=value && n.children.length>0; n.children.forEach(c=>setExpandedRec(c,value)); }
+  wrap.querySelector('#expandAllBtn').onclick=()=>{ setExpandedRec(root,true); render(); };
+  wrap.querySelector('#collapseAllBtn').onclick=()=>{
+    (function collapse(n){ n.expanded = n.depth===0; n.children.forEach(collapse); })(root);
+    render({preserveView:false});
+  };
+  wrap.querySelector('#zoomInBtn').onclick=()=>zoomBy(1.18);
+  wrap.querySelector('#zoomOutBtn').onclick=()=>zoomBy(.85);
+  wrap.querySelector('#fitBtn').onclick=()=>centerOnRoot();
+
+  wrap.querySelector('#regenBtn').addEventListener('click',()=>{
+    if(!confirm('Bạn có muốn nạp lại tài liệu để tạo mới toàn bộ bài học?')) return;
+    currentLesson=null; uploadedFilesQueue=[]; renderMain();
+  });
+
+  currentMmRoot=root;
+  currentMmInstance={root,render,centerOnRoot};
+  render({preserveView:false});
+}
+
+/* 8. RENDER TRẮC NGHIỆM VỚI THANH CÔNG CỤ TÙY BIẾN */
+function renderQuiz(container){
+  container.innerHTML = '';
+  const questions = currentLesson.questions || [];
+
+  const topControls = document.createElement('div');
+  topControls.className = 'quiz-top-bar';
+  topControls.innerHTML = `
+    <div class="q-progress">Câu ${quiz.done ? questions.length : quiz.index+1} / ${questions.length}</div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <select id="quickCountSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px;">
+        <option value="10">10 câu</option>
+        <option value="15" ${questions.length===15?'selected':''}>15 câu</option>
+        <option value="20" ${questions.length===20?'selected':''}>20 câu</option>
+        <option value="30" ${questions.length===30?'selected':''}>30 câu</option>
+        <option value="40" ${questions.length===40?'selected':''}>40 câu</option>
+      </select>
+      <select id="quickLevelSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px;">
+        <option value="standard">Cân bằng</option>
+        <option value="hard">Nâng cao / Bẫy</option>
+        <option value="clinical">Thực hành / Ứng dụng</option>
+      </select>
+      <button class="btn ghost small" id="regenQuizBtn">🔄 Tạo bộ câu hỏi mới</button>
+    </div>
+  `;
+  container.appendChild(topControls);
+
+  const statusBox = document.createElement('div');
+  statusBox.id = 'quizRegenStatus';
+  statusBox.style.cssText = 'font-size:12.5px; margin-bottom:12px; min-height:16px;';
+  container.appendChild(statusBox);
+
+  topControls.querySelector('#regenQuizBtn').addEventListener('click', () => {
+    const c = parseInt(document.getElementById('quickCountSelect').value, 10);
+    const l = document.getElementById('quickLevelSelect').value;
+    regenerateOnlyQuiz(c, l);
+  });
+
+  if(questions.length === 0){
+    const emptyBox = document.createElement('div');
+    emptyBox.className = 'card';
+    emptyBox.textContent = toNFC('Bài học này chưa có câu hỏi. Bấm "Tạo bộ câu hỏi mới" ở trên để sinh đề thi.');
+    container.appendChild(emptyBox);
+    return;
+  }
+  if(quiz.done){ renderQuizScore(container, questions); return; }
+
+  const i = quiz.index;
+  const q = questions[i];
+  const box = document.createElement('div');
+  box.className = 'q-box';
+  box.innerHTML = `<div class="q-text"></div><div class="opts"></div>`;
+  box.querySelector('.q-text').textContent = toNFC(q.question);
+  const optsEl = box.querySelector('.opts');
+  const already = quiz.answers[i];
+
+  q.options.forEach((opt, idx) => {
+    const o = document.createElement('div');
+    o.className = 'opt' + (already !== undefined ? ' disabled' : '');
+    o.innerHTML = `<span class="letter">${'ABCD'[idx]}</span><span></span>`;
+    o.querySelector('span:last-child').textContent = toNFC(opt);
+
+    if(already !== undefined){
+      if(idx === q.correctIndex) o.classList.add('correct');
+      else if(idx === already && already !== q.correctIndex) o.classList.add('wrong');
+    }
+
+    if(already === undefined){
+      o.addEventListener('click', () => {
+        quiz.answers[i] = idx;
+        renderQuiz(container);
+      });
+    }
+    optsEl.appendChild(o);
+  });
+
+  if(already !== undefined && q.explanation){
+    const ex = document.createElement('div');
+    ex.className = 'explain';
+    const exTitle = document.createElement('strong');
+    exTitle.textContent = toNFC('💡 Giải thích chi tiết:');
+    const exText = document.createElement('div');
+    exText.style.marginTop = '4px';
+    exText.textContent = toNFC(q.explanation);
+    ex.append(exTitle, exText);
+    box.appendChild(ex);
+  }
+
+  const nav = document.createElement('div');
+  nav.className = 'q-nav';
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn ghost'; prevBtn.textContent = toNFC('Câu trước'); prevBtn.disabled = i===0;
+  prevBtn.addEventListener('click', () => { quiz.index--; renderQuiz(container); });
+  
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn';
+  nextBtn.textContent = toNFC(i === questions.length-1 ? 'Xem tổng kết kết quả' : 'Câu tiếp theo');
+  nextBtn.disabled = already === undefined;
+  nextBtn.addEventListener('click', () => {
+    if(i === questions.length-1){
+      quiz.done = true;
+      saveAttempt(questions);
+      renderQuiz(container);
+    } else {
+      quiz.index++; renderQuiz(container);
+    }
+  });
+  nav.appendChild(prevBtn); nav.appendChild(nextBtn);
+  box.appendChild(nav);
+  container.appendChild(box);
+}
+
+function saveAttempt(questions){
+  const answers = questions.map((q, idx) => ({
+    qid: q.id, question: q.question, options: q.options, explanation: q.explanation || '', chosenIndex: quiz.answers[idx],
+    correctIndex: q.correctIndex, correct: quiz.answers[idx] === q.correctIndex
+  }));
+  const score = answers.filter(a => a.correct).length;
+  const attempt = { date: Date.now(), score, total: questions.length, answers };
+  const prev = getStore('attempts:'+currentLessonId) || [];
+  prev.unshift(attempt);
+  setStore('attempts:'+currentLessonId, prev);
+}
+
+function renderQuizScore(container, questions){
+  const answers = questions.map((q, idx) => ({
+    question: q.question, options: q.options,
+    chosenIndex: quiz.answers[idx], correctIndex: q.correctIndex,
+    correct: quiz.answers[idx] === q.correctIndex, explanation: q.explanation
+  }));
+  const score = answers.filter(a=>a.correct).length;
+  const wrap = document.createElement('div');
+  wrap.className = 'card score-card';
+  wrap.innerHTML = `<div class="score-num">${score}/${questions.length}</div><p style="color:var(--muted)">${toNFC('Số câu trả lời đúng')}</p>
+    <div style="display:flex; justify-content:center; gap:8px; margin-top:14px;">
+      <button class="btn" id="retryBtn">${toNFC('Làm lại bài thi này')}</button>
+    </div>`;
+  container.appendChild(wrap);
+  wrap.querySelector('#retryBtn').addEventListener('click', () => { 
+    quiz = {index:0, answers:[], started:false, done:false}; 
+    renderQuiz(container); 
+  });
+
+  const revWrap = document.createElement('div');
+  revWrap.className = 'review-list';
+  revWrap.style.marginTop = '20px';
+  answers.forEach((a, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rev-item';
+    const top = document.createElement('div');
+    const tag = document.createElement('span');
+    tag.className = `tag ${a.correct?'ok':'bad'}`; tag.textContent = toNFC(a.correct ? 'ĐÚNG' : 'SAI');
+    const st = document.createElement('strong'); st.textContent = toNFC(`Câu ${idx+1}: ${a.question}`);
+    top.append(tag, st);
+    const choice = document.createElement('div'); choice.style.cssText='margin-top:6px;font-size:14px;';
+    choice.append(toNFC('Bạn chọn: '));
+    const em = document.createElement('em'); em.textContent = toNFC(a.chosenIndex !== undefined ? a.options[a.chosenIndex] : '(chưa chọn)'); choice.appendChild(em);
+    if(!a.correct){
+      choice.append(toNFC(' — 🎯 Đáp án đúng: '));
+      const b = document.createElement('b'); b.style.color='var(--correct)'; b.textContent = toNFC(a.options[a.correctIndex] || ''); choice.appendChild(b);
+    }
+    item.append(top, choice);
+    if(a.explanation){ const why=document.createElement('div'); why.style.cssText='margin-top:8px;color:var(--muted);font-size:13.5px;'; why.textContent=toNFC('💡 '+a.explanation); item.appendChild(why); }
+    revWrap.appendChild(item);
+  });
+  container.appendChild(revWrap);
+}
+
+/* 9. LỊCH SỬ THI */
+function renderHistory(container){
+  const attempts = getStore('attempts:'+currentLessonId) || [];
+  container.innerHTML = '';
+  if(attempts.length === 0){
+    container.innerHTML = `<div class="card">${toNFC('Chưa có lượt thi nào cho bài học này. Hãy làm bài thi ở tab Trắc nghiệm.')}</div>`;
+    return;
+  }
+  attempts.forEach((att) => {
+    const item = document.createElement('div');
+    item.className = 'hist-item';
+    const d = new Date(att.date);
+    item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} ${toNFC('câu đúng')}</span>`;
+    item.querySelector('span').textContent = d.toLocaleString('vi-VN');
+    item.addEventListener('click', () => renderAttemptDetail(container, att));
+    container.appendChild(item);
+  });
+}
+
+function renderAttemptDetail(container, att){
+  container.innerHTML = `<button class="btn ghost small" id="backBtn" style="margin-bottom:14px;">← ${toNFC('Quay lại danh sách lịch sử')}</button>`;
+  const revWrap = document.createElement('div');
+  revWrap.className = 'review-list';
+  att.answers.forEach((a, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rev-item';
+    item.innerHTML = `<div><span class="tag ${a.correct?'ok':'bad'}">${toNFC(a.correct?'ĐÚNG':'SAI')}</span><strong></strong></div><div class="hist-detail" style="margin-top:7px;font-size:13.5px;color:var(--muted)"></div>`;
+    item.querySelector('strong').textContent = toNFC(`Câu ${idx+1}: ${a.question}`);
+    const detail = item.querySelector('.hist-detail');
+    if(Array.isArray(a.options)){
+      const chosen = toNFC(a.chosenIndex !== undefined ? a.options[a.chosenIndex] : '(chưa chọn)');
+      const correct = toNFC(a.options[a.correctIndex] || '');
+      detail.textContent = toNFC(`Bạn chọn: ${chosen}${a.correct ? '' : ' — Đáp án đúng: ' + correct}${a.explanation ? ' — ' + a.explanation : ''}`);
+    }
+    revWrap.appendChild(item);
+  });
+  container.appendChild(revWrap);
+  container.querySelector('#backBtn').addEventListener('click', () => renderHistory(container));
+}
+</script>
+</body>
+</html>
