@@ -868,108 +868,162 @@ YÊU CẦU:
 
 /* 6. TẠO LẠI BỘ TRẮC NGHIỆM RIÊNG (TỐI ƯU NHẸ DỰA TRÊN MIND MAP) */
 async function regenerateOnlyQuiz(count, level){
-  const apiKey = (document.getElementById('apiKeyInput').value || '').replace(/\s+/g, '');
+  const apiKey = (document.getElementById('apiKeyInput')?.value || '').replace(/\s+/g, '');
   if(!apiKey){
     alert("Vui lòng kiểm tra mã Gemini API Key!");
     return;
   }
-  if(!currentLesson){ return; }
+  if(!currentLesson) return;
 
   const statusEl = document.getElementById('quizRegenStatus');
   const regenBtn = document.getElementById('regenQuizBtn');
   if(regenBtn) regenBtn.disabled = true;
-  if(statusEl) {
-    statusEl.style.color = 'var(--muted)';
-    statusEl.innerHTML = `<span class="loader"><span class="spinner"></span> Đang tạo bộ ${count} câu hỏi trắc nghiệm mới từ kiến thức bài học...</span>`;
-  }
 
-  let levelInstruction = "Câu hỏi bao quát toàn diện các kiến thức trọng tâm, định luật, công thức và thông số kỹ thuật.";
+  const setQuizStatus = (html, isError = false) => {
+    if(!statusEl) return;
+    statusEl.style.color = isError ? 'var(--wrong)' : 'var(--muted)';
+    statusEl.innerHTML = html;
+  };
+
+  setQuizStatus(`<span class="loader"><span class="spinner"></span> Đang tạo bộ ${count} câu hỏi mới...</span>`);
+
+  let levelInstruction = "Bao quát các kiến thức trọng tâm, định luật, công thức và thông số kỹ thuật.";
   if(level === 'hard'){
-    levelInstruction = "Tập trung vào các câu hỏi phân biệt chi tiết dễ nhầm lẫn, các bẫy trắc nghiệm lý thuyết và câu hỏi suy luận so sánh.";
+    levelInstruction = "Tập trung vào chi tiết dễ nhầm lẫn, bẫy trắc nghiệm và câu hỏi suy luận so sánh.";
   } else if(level === 'clinical'){
-    levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng xử lý kết quả đo lường, ca định lượng/định tính thực tế trong phòng kiểm nghiệm/dược lâm sàng.";
+    levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng và ca lâm sàng/thực tế phù hợp với nội dung bài học.";
   }
 
-  const promptText = `Bạn là chuyên gia soạn thảo đề thi Y Dược học chuyên sâu.
-Nhiệm vụ: Dựa vào nội dung tóm tắt bài học dưới đây, soạn MỘT BỘ ĐỀ TRẮC NGHIỆM MỚI TOÀN DIỆN, ĐỔI MỚI GÓC NHÌN, TUYỆT ĐỐI KHÔNG TRÙNG LẶP.
+  // Giới hạn đầu vào để tránh request quá lớn nếu mind map được Gemini tạo quá dài.
+  const sourceText = String(currentLesson.mindmapMarkdown || currentLesson.name || '').slice(0, 60000);
+  const noteText = String(currentLesson.rawNoteText || '').slice(0, 20000);
 
-NỘI DUNG BÀI HỌC VÀ SƠ ĐỒ KIẾN THỨC:
-${currentLesson.mindmapMarkdown || currentLesson.name}${currentLesson.rawNoteText ? '\nGHI CHÚ BỔ SUNG:\n' + currentLesson.rawNoteText : ''}
+  const promptText = `Bạn là chuyên gia soạn đề thi Y Dược.
+Hãy tạo MỘT BỘ TRẮC NGHIỆM MỚI dựa CHỈ trên nội dung bài học dưới đây.
+Không lặp lại câu hỏi cũ, không đưa thông tin ngoài tài liệu nếu tài liệu không hỗ trợ.
 
-TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙNG BACKTICK \`\`\`json, KHÔNG LỜI DẪN):
-{
-  "questions": [
-    {
-      "question": "Nội dung câu hỏi trắc nghiệm?",
-      "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"],
-      "correctIndex": 0,
-      "explanation": "Giải thích chi tiết tại sao đúng và tại sao các phương án khác sai"
-    }
-  ]
-}
+NỘI DUNG BÀI HỌC:
+${sourceText}${noteText ? '\n\nGHI CHÚ BỔ SUNG:\n' + noteText : ''}
 
 YÊU CẦU:
-- Số lượng: ĐÚNG CHÍNH XÁC ${count} câu hỏi trắc nghiệm.
-- Định hướng độ khó: ${levelInstruction}
-- Mã phiên ngẫu nhiên: ${Date.now()}`;
+- Tạo đúng ${count} câu hỏi.
+- Mỗi câu có đúng 4 phương án.
+- correctIndex là số nguyên 0, 1, 2 hoặc 3.
+- ${levelInstruction}
+- Giải thích ngắn gọn, rõ ràng, tối đa 2-3 câu cho mỗi câu hỏi.
+- Trả về JSON hợp lệ theo đúng schema được yêu cầu.`;
+
+  const responseSchema = {
+    type: "OBJECT",
+    properties: {
+      questions: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            question: { type: "STRING" },
+            options: {
+              type: "ARRAY",
+              items: { type: "STRING" },
+              minItems: 4,
+              maxItems: 4
+            },
+            correctIndex: { type: "INTEGER" },
+            explanation: { type: "STRING" }
+          },
+          required: ["question", "options", "correctIndex", "explanation"]
+        }
+      }
+    },
+    required: ["questions"]
+  };
 
   try {
     const GEMINI_MODEL = 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-    
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
+        contents: [{ role: "user", parts: [{ text: promptText }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.85
+          responseSchema,
+          temperature: 0.65,
+          maxOutputTokens: 32768
         }
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Máy chủ báo lỗi (${response.status}): Vui lòng kiểm tra lại Quota hoặc API Key.`);
+    const data = await response.json().catch(() => ({}));
+
+    if(!response.ok){
+      const apiMsg = data?.error?.message || `HTTP ${response.status}`;
+      throw new Error(apiMsg);
     }
 
-    const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!generatedText) throw new Error("Không nhận được nội dung từ AI.");
+    const candidate = data?.candidates?.[0];
+    const finishReason = candidate?.finishReason || '';
+    const generatedText = candidate?.content?.parts?.map(p => p.text || '').join('') || '';
 
-    let clean = generatedText.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-    const parsed = JSON.parse(clean);
+    if(!generatedText){
+      throw new Error(`Gemini không trả về nội dung${finishReason ? ` (${finishReason})` : ''}.`);
+    }
+
+    if(finishReason === 'MAX_TOKENS'){
+      throw new Error('Phản hồi bị cắt do quá dài. Hãy thử giảm số câu xuống 20-30 câu.');
+    }
+
+    let parsed;
+    try {
+      const clean = generatedText
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+      parsed = JSON.parse(clean);
+    } catch(parseErr){
+      console.error('Gemini raw response:', generatedText);
+      throw new Error('Gemini trả về JSON chưa hoàn chỉnh. Vui lòng bấm tạo lại một lần nữa.');
+    }
 
     if(!Array.isArray(parsed.questions)){
-      throw new Error('Dữ liệu câu hỏi trả về không đúng định dạng mảng.');
+      throw new Error('Gemini trả về dữ liệu không đúng cấu trúc câu hỏi.');
     }
 
-    const cleanQuestions = parsed.questions.filter(q =>
-      q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 &&
-      Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
-    );
+    const cleanQuestions = parsed.questions
+      .filter(q =>
+        q && typeof q.question === 'string' &&
+        Array.isArray(q.options) && q.options.length === 4 &&
+        Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
+      )
+      .slice(0, count);
+
+    if(cleanQuestions.length === 0){
+      throw new Error('Không nhận được câu hỏi hợp lệ từ Gemini.');
+    }
 
     currentLesson.questions = cleanQuestions.map(q => ({
       id: uid(),
       question: toNFC(q.question),
       options: q.options.map(opt => toNFC(opt)),
       correctIndex: q.correctIndex,
-      explanation: toNFC(q.explanation)
+      explanation: toNFC(q.explanation || '')
     }));
 
     setStore('lesson:' + currentLessonId, currentLesson);
     await syncToCloud();
-    
+
     quiz = { index:0, answers:[], started:false, done:false };
     renderMain();
   } catch(err) {
-    console.error(err);
-    if(statusEl){
-      statusEl.style.color = 'var(--wrong)';
-      statusEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo mới câu hỏi.');
-    }
+    console.error('regenerateOnlyQuiz error:', err);
+    setQuizStatus(`❌ ${toNFC(err.message || 'Không thể tạo mới câu hỏi.')}`, true);
   } finally {
-    if(regenBtn) regenBtn.disabled = false;
+    const currentBtn = document.getElementById('regenQuizBtn');
+    if(currentBtn) currentBtn.disabled = false;
   }
 }
 
