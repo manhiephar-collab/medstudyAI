@@ -477,6 +477,89 @@ let uploadedFilesQueue = [];
 let currentMmInstance = null;
 let currentMmRoot = null;
 
+/* LƯU TÀI LIỆU GỐC THEO TỪNG BÀI HỌC BẰNG INDEXEDDB
+   - Không dùng localStorage vì PDF/ảnh có thể lớn.
+   - Mỗi API Key (activeUid) + mỗi bài học có một kho tài liệu riêng trên thiết bị.
+*/
+const SOURCE_DB_NAME = 'MedStudyAI_SourceFiles';
+const SOURCE_DB_VERSION = 1;
+const SOURCE_STORE = 'lessonSources';
+
+function openSourceDb(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SOURCE_DB_NAME, SOURCE_DB_VERSION);
+    req.onupgradeneeded = () => {
+      const dbi = req.result;
+      if(!dbi.objectStoreNames.contains(SOURCE_STORE)){
+        dbi.createObjectStore(SOURCE_STORE, { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Không mở được kho tài liệu trên thiết bị.'));
+  });
+}
+
+function getLessonSourceKey(lessonId = currentLessonId){
+  if(!activeUid || !lessonId) return null;
+  return `${activeUid}:${lessonId}`;
+}
+
+async function loadSavedLessonSources(lessonId = currentLessonId){
+  const key = getLessonSourceKey(lessonId);
+  if(!key) return [];
+  try{
+    const dbi = await openSourceDb();
+    return await new Promise((resolve, reject) => {
+      const tx = dbi.transaction(SOURCE_STORE, 'readonly');
+      const req = tx.objectStore(SOURCE_STORE).get(key);
+      req.onsuccess = () => resolve(Array.isArray(req.result?.sources) ? req.result.sources : []);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(err){
+    console.error('loadSavedLessonSources error:', err);
+    return [];
+  }
+}
+
+async function saveLessonSources(lessonId = currentLessonId, sources = uploadedFilesQueue){
+  const key = getLessonSourceKey(lessonId);
+  if(!key) return false;
+  try{
+    const dbi = await openSourceDb();
+    await new Promise((resolve, reject) => {
+      const tx = dbi.transaction(SOURCE_STORE, 'readwrite');
+      tx.objectStore(SOURCE_STORE).put({
+        key,
+        uid: activeUid,
+        lessonId,
+        updatedAt: Date.now(),
+        sources: Array.isArray(sources) ? sources : []
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Không lưu được tài liệu.'));
+    });
+    return true;
+  }catch(err){
+    console.error('saveLessonSources error:', err);
+    return false;
+  }
+}
+
+async function deleteSavedLessonSources(lessonId){
+  const key = getLessonSourceKey(lessonId);
+  if(!key) return;
+  try{
+    const dbi = await openSourceDb();
+    await new Promise((resolve, reject) => {
+      const tx = dbi.transaction(SOURCE_STORE, 'readwrite');
+      tx.objectStore(SOURCE_STORE).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(err){ console.error('deleteSavedLessonSources error:', err); }
+}
+
 async function init(){
   const keyInput = document.getElementById('apiKeyInput');
   const syncBtn = document.getElementById('manualSyncBtn');
@@ -573,7 +656,7 @@ function renderSidebar(){
       e.stopPropagation();
       if(!confirm(`Xoá môn "${subj.name}" và toàn bộ bài học bên trong?`)) return;
       const lessons = toc.lessonsBySubject[subj.id] || [];
-      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); }
+      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); deleteSavedLessonSources(l.id); }
       delete toc.lessonsBySubject[subj.id];
       toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
       setStore('toc', toc);
@@ -619,7 +702,7 @@ function renderSidebar(){
         item.querySelector('.del-lesson').addEventListener('click', (e) => {
           e.stopPropagation();
           if(!confirm(`Xoá bài "${lesson.name}"?`)) return;
-          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id);
+          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id); deleteSavedLessonSources(lesson.id);
           toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
           setStore('toc', toc);
           syncToCloud();
@@ -766,6 +849,7 @@ function renderGenerateForm(){
       <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
     </div>
     <div class="file-queue" id="fileQueue"></div>
+    <div id="sourceSaveHint" style="font-size:11.5px;color:var(--muted);margin:-4px 0 14px;display:none;">💾 Tài liệu của bài học được lưu trên thiết bị và sẽ tự nạp lại khi bạn cần tạo mới.</div>
 
     <div class="quiz-options-grid">
       <div>
@@ -804,6 +888,7 @@ function renderGenerateForm(){
   const queueEl = wrap.querySelector('#fileQueue');
   const textarea = wrap.querySelector('#contentInput');
   const status = wrap.querySelector('#genStatus');
+  const sourceSaveHint = wrap.querySelector('#sourceSaveHint');
 
   function renderQueueList(){
     queueEl.innerHTML = '';
@@ -820,18 +905,21 @@ function renderGenerateForm(){
         const del = document.createElement('span');
         del.className = 'chip-del'; del.title = 'Xoá file này'; del.textContent = '✕';
         chip.append(info, del);
-        del.addEventListener('click', () => {
+        del.addEventListener('click', async () => {
           uploadedFilesQueue.splice(idx, 1);
+          await saveLessonSources(currentLessonId, uploadedFilesQueue);
           renderQueueList();
         });
         queueEl.appendChild(chip);
       });
       const pdfCount = uploadedFilesQueue.filter(f => f.mimeType === 'application/pdf').length;
       const imageCount = uploadedFilesQueue.length - pdfCount;
-      status.textContent = toNFC(`Đã sẵn sàng: ${pdfCount} PDF${imageCount ? ` + ${imageCount} ảnh` : ''}. Gemini sẽ đọc trực tiếp nội dung tài liệu.`);
+      status.textContent = toNFC(`Đã sẵn sàng: ${pdfCount} PDF${imageCount ? ` + ${imageCount} ảnh` : ''}.`);
       status.style.color = 'var(--correct)';
+      if(sourceSaveHint) sourceSaveHint.style.display = 'block';
     } else {
       status.textContent = '';
+      if(sourceSaveHint) sourceSaveHint.style.display = 'none';
     }
   }
 
@@ -869,6 +957,7 @@ function renderGenerateForm(){
         });
       }
     }
+    await saveLessonSources(currentLessonId, uploadedFilesQueue);
     renderQueueList();
   }
 
@@ -895,6 +984,17 @@ function renderGenerateForm(){
     if(dt && dt.files.length){ processFiles(dt.files); }
   }, false);
 
+  // Tự nạp lại tài liệu đã lưu của bài học hiện tại mỗi khi mở màn hình tạo.
+  (async () => {
+    const saved = await loadSavedLessonSources(currentLessonId);
+    uploadedFilesQueue = Array.isArray(saved) ? saved : [];
+    const existingLesson = getStore('lesson:' + currentLessonId);
+    if(existingLesson?.rawNoteText && !textarea.value){
+      textarea.value = existingLesson.rawNoteText;
+    }
+    renderQueueList();
+  })();
+
   wrap.querySelector('#genBtn').addEventListener('click', () => generateLessonWithGemini(wrap));
   return wrap;
 }
@@ -920,6 +1020,8 @@ async function generateLessonWithGemini(wrap){
     status.style.color = 'var(--wrong)';
     return;
   }
+
+  await saveLessonSources(currentLessonId, uploadedFilesQueue);
 
   btn.disabled = true;
   status.style.color = 'var(--muted)';
@@ -1029,7 +1131,9 @@ YÊU CẦU:
         correctIndex: q.correctIndex,
         explanation: toNFC(q.explanation)
       })),
-      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, mimeType: f.mimeType || 'application/pdf', base64: f.base64 })),
+      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, mimeType: f.mimeType || 'application/pdf' })),
+      rawSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, mimeType: f.mimeType || 'application/pdf' })),
+      sourceCount: uploadedFilesQueue.length,
       rawNoteText: manualText,
       createdAt: Date.now()
     };
@@ -1227,7 +1331,7 @@ function renderMindmap(container){
   wrap.innerHTML = `
     <div class="mindmap-help">
       <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ nhánh. Có thể kéo sơ đồ để xem phần ngoài màn hình.</em></span>
-      <button class="btn ghost small" id="regenBtn">Nạp lại / Thêm tài liệu</button>
+      <button class="btn ghost small" id="regenBtn">📚 Quản lý tài liệu</button>
     </div>
     <div class="mindmap-wrapper" id="mmWrap">
       <div class="mindmap-toolbar">
@@ -1481,7 +1585,8 @@ function renderMindmap(container){
   wrap.querySelector('#fitBtn').onclick = centerCurrent;
 
   wrap.querySelector('#regenBtn').addEventListener('click', () => {
-    if(!confirm('Bạn có muốn nạp lại tài liệu để tạo mới toàn bộ bài học?')) return;
+    // Không xoá dữ liệu bài học ngay. Chỉ mở màn hình quản lý tài liệu.
+    // Tài liệu đã lưu sẽ tự nạp lại; người dùng có thể thêm/bớt rồi bấm Tạo để cập nhật bài.
     currentLesson = null;
     uploadedFilesQueue = [];
     renderMain();
