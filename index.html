@@ -1559,10 +1559,18 @@ function openAiKnowledge(topic){
 function normalizeAiLatex(raw){
   let text = String(raw || '').replace(/\r\n/g, '\n');
 
-  // Gemini đôi khi trả TeX đúng cú pháp nhưng quên $...$/$$...$$.
-  // Chuẩn hoá phần trăm trong công thức: 1% -> 1\% (nếu chưa escape).
-  const escapePercentInMath = (s) => s.replace(/(^|[^\\])%/g, '$1\\%');
+  // Trong TeX, dấu % bắt đầu comment. Nếu Gemini trả "1%" bên trong công thức,
+  // KaTeX sẽ ẩn phần còn lại của dòng (ví dụ E(1%...) chỉ còn E(1).
+  // Vì vậy phải escape % trong MỌI vùng công thức, kể cả vùng đã có $...$.
+  const escapePercentInMath = (s) => String(s || '').replace(/(^|[^\\])%/g, '$1\\%');
 
+  // Sửa phần trăm ngay trong các delimiter đã có sẵn trước khi xử lý Markdown.
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (m, inner) => '$$' + escapePercentInMath(inner) + '$$');
+  text = text.replace(/\$([^\n$]+?)\$/g, (m, inner) => '$' + escapePercentInMath(inner) + '$');
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (m, inner) => '\\[' + escapePercentInMath(inner) + '\\]');
+  text = text.replace(/\\\(([^\n]*?)\\\)/g, (m, inner) => '\\(' + escapePercentInMath(inner) + '\\)');
+
+  // Gemini đôi khi trả TeX đúng cú pháp nhưng quên $...$/$$...$$.
   const lines = text.split('\n').map(line => {
     const t = line.trim();
     if(!t || t.includes('$') || t.startsWith('```')) return line;
@@ -1581,7 +1589,7 @@ function normalizeAiLatex(raw){
 
   // Bọc các token TeX ngắn còn trần trong câu văn, thường gặp E_{1cm}^{1%}.
   // Không đụng vào vùng đã nằm trong dấu $.
-  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^\n$]+\$)/g);
+  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^\n$]+\$|\\\[[\s\S]*?\\\]|\\\([^\n]*?\\\))/g);
   for(let i=0;i<parts.length;i+=2){
     parts[i] = parts[i].replace(/\b([A-Za-z](?:_[{][^}\n]+[}])?(?:\^[{][^}\n]+[}])+)\b/g, (m) => '$' + escapePercentInMath(m) + '$');
   }
@@ -1661,7 +1669,7 @@ YÊU CẦU:
 - Không bịa số liệu, liều dùng hoặc khuyến cáo lâm sàng. Nếu không chắc, nói rõ.
 - Trả lời súc tích nhưng đủ ý, dùng Markdown sạch: tiêu đề ##/###, gạch đầu dòng và **in đậm** khi phù hợp.
 - Mọi công thức toán/hóa BẮT BUỘC phải nằm trong dấu phân cách LaTeX: dùng $...$ cho công thức trong dòng hoặc $$...$$ cho công thức riêng dòng. Tuyệt đối không xuất các lệnh như \frac, \varepsilon, \cdot, _{...}, ^{...} ở ngoài dấu $. Ví dụ đúng: $A = \varepsilon \cdot L \cdot C$.
-- Trong LaTeX, ký hiệu phần trăm phải viết là \%, ví dụ $E_{1cm}^{1\%}$.
+- Trong LaTeX, ký hiệu phần trăm BẮT BUỘC phải escape thành \%, tuyệt đối không viết % trần trong công thức. Ví dụ đúng: $E_{1cm}^{1\%}$; ví dụ sai: $E_{1cm}^{1%}$.
 - Không đặt công thức LaTeX bên trong cặp **...**; nếu cần nhấn mạnh, hãy nhấn mạnh phần chữ mô tả bên ngoài công thức.`;
 
   async function callModel(model){
