@@ -139,7 +139,7 @@
   .status-line{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px;}
 
   /* ============================================================
-     THIẾT KẾ ĐỒ HỌA MARKMAP: Ô ĐEN TRONG SUỐT, KHÔNG LINE THỪA
+     THIẾT KẾ MINDMAP ĐỒ HỌA: Ô ĐEN TRONG SUỐT, KHÔNG LINE THỪA
      ============================================================ */
   .mindmap-wrapper{
     border:1px solid #28332D; border-radius:12px; background:#1F2421;
@@ -160,7 +160,7 @@
     width:100%; height:720px; display:block;
   }
 
-  /* 1. ĐƯỜNG CONG NỐI MƯỢT MÀ */
+  /* Đường cong nối giữa các nhánh */
   #markmapSvg path.markmap-link {
     fill: none !important;
     stroke: #55685D !important;
@@ -168,7 +168,7 @@
     stroke-linecap: round !important;
   }
 
-  /* 2. XÓA TRIỆT ĐỂ MỌI ĐƯỜNG LINE GẠCH CHÂN THỪA */
+  /* XÓA HOÀN TOÀN CÁC ĐƯỜNG GẠCH CHÂN DƯỚI ĐÁY */
   #markmapSvg line,
   #markmapSvg line.markmap-line,
   #markmapSvg path.markmap-line {
@@ -179,12 +179,12 @@
     stroke-width: 0 !important;
   }
 
-  /* 3. Ô CHỮ: NỀN ĐEN TRONG SUỐT (GLASSMORPHISM), CHỮ TRẮNG */
   #markmapSvg foreignObject {
     overflow: visible !important;
     cursor: pointer !important;
   }
 
+  /* Ô CHỮ: NỀN ĐEN TRONG SUỐT, CHỮ TRẮNG TINH */
   #markmapSvg foreignObject > div {
     display: inline-flex !important;
     align-items: center !important;
@@ -201,7 +201,7 @@
     letter-spacing: 0.2px !important;
     white-space: nowrap !important;
     user-select: none !important;
-    transition: background .15s ease, border-color .15s ease, transform .1s ease !important;
+    transition: background .15s ease, border-color .15s ease !important;
   }
 
   #markmapSvg foreignObject > div:hover {
@@ -217,7 +217,7 @@
     font-weight: 600 !important;
   }
 
-  /* 4. NÚT MŨI TÊN BẬT/XỔ NATIVE SVG (> VÀ <) NẰM NGAY ĐẦU ĐƯỜNG PHÂN NHÁNH */
+  /* NÚT MŨI TÊN BẬT/XỔ (> HOẶC <) */
   .markmap-fold-button {
     cursor: pointer !important;
   }
@@ -243,7 +243,6 @@
     pointer-events: none;
   }
 
-  /* Ẩn dấu chấm tròn mặc định của Markmap */
   #markmapSvg circle {
     display: none !important;
     opacity: 0 !important;
@@ -677,7 +676,7 @@ function renderGenerateForm(){
 
 /* 5. GỌI GEMINI TẠO CẤU TRÚC NHÁNH */
 async function generateLessonWithGemini(wrap){
-  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const apiKey = (document.getElementById('apiKeyInput').value || '').trim();
   const textarea = wrap.querySelector('#contentInput');
   const status = wrap.querySelector('#genStatus');
   const btn = wrap.querySelector('#genBtn');
@@ -779,7 +778,7 @@ QUY TẮC QUAN TRỌNG CHO MINDMAP MARKDOWN:
   }
 }
 
-/* 6. RENDER MARKMAP: BẬT/XỔ NATIVE 100% NHẠY, MŨI TÊN CHUẨN XÁC THEO VIDEO */
+/* 6. RENDER MARKMAP: BẬT/XỔ NATIVE ĐẢM BẢO HOẠT ĐỘNG 100% */
 function renderMindmap(container){
   let md = currentLesson.mindmapMarkdown || '';
   
@@ -816,7 +815,7 @@ function renderMindmap(container){
       const svg = document.getElementById('markmapSvg');
       svg.innerHTML = '';
 
-      // Mặc định thu gọn các nhánh con từ cấp 2 trở đi
+      // Tự động thu gọn các nhánh con từ cấp 2 trở đi
       function setInitialFold(node, depth = 0) {
         if (node.children && node.children.length > 0) {
           node.state = {
@@ -837,7 +836,7 @@ function renderMindmap(container){
         color: () => '#55685D'
       }, root);
 
-      // HÀM BẬT/XỔ NATIVE ĐẢM BẢO HOẠT ĐỘNG 100%
+      // HÀM BẬT/XỔ NATIVE CHUẨN XÁC
       function toggleNode(nodeData) {
         if (nodeData && nodeData.data && nodeData.data.children && nodeData.data.children.length > 0) {
           const currentState = nodeData.data.state && nodeData.data.state.collapsed;
@@ -845,17 +844,16 @@ function renderMindmap(container){
             ...nodeData.data.state,
             collapsed: !currentState
           };
-          // Gọi trực tiếp hàm setData chuẩn của Markmap để vẽ lại nhánh ngay lập tức
           currentMmInstance.setData(root);
           setTimeout(updateToggleButtons, 260);
         }
       }
 
-      // HÀM VẼ NÚT MŨI TÊN VÀ GẮN SỰ KIỆN CLICK BẬT/XỔ
+      // VẼ NÚT MŨI TÊN VÀ GẮN SỰ KIỆN CLICK BẬT/XỔ
       function updateToggleButtons() {
         const svgEl = d3.select('#markmapSvg');
 
-        // Xóa hoàn toàn các đường line gạch chân thừa
+        // Xóa sạch các đường line gạch chân thừa
         svgEl.selectAll('line').remove();
 
         svgEl.selectAll('g.markmap-node').each(function(d) {
@@ -863,7 +861,7 @@ function renderMindmap(container){
           const hasChildren = d.data && d.data.children && d.data.children.length > 0;
           const isCollapsed = d.data && d.data.state && d.data.state.collapsed;
 
-          // 1. BẤM TRỰC TIẾP VÀO Ô CHỮ ĐỂ BẬT/XỔ
+          // 1. BẤM VÀO Ô CHỮ ĐỂ BẬT/XỔ
           const fo = g.select('foreignObject');
           if (!fo.empty()) {
             fo.on('click', (event) => {
@@ -876,7 +874,7 @@ function renderMindmap(container){
           // Xóa nút mũi tên cũ nếu có
           g.selectAll('.markmap-fold-button').remove();
 
-          // 2. NẾU CÓ NHÁNH CON: VẼ NÚT MŨI TÊN CHUẨN SVG (> HOẶC <) Ở ĐẦU BÊN PHẢI
+          // 2. NẾU CÓ NHÁNH CON: VẼ NÚT MŨI TÊN SVG (> HOẶC <)
           if (hasChildren) {
             let boxWidth = 140;
             if (!fo.empty()) {
@@ -890,14 +888,12 @@ function renderMindmap(container){
               .attr('class', 'markmap-fold-button')
               .attr('transform', `translate(${boxWidth + 14}, 0)`);
 
-            // Khung vuông nhỏ bo góc cho nút mũi tên
             btnGroup.append('rect')
               .attr('x', -9)
               .attr('y', -9)
               .attr('width', 18)
               .attr('height', 18);
 
-            // Đang đóng hiện `>`, Đang mở bung hiện `<` (chuẩn như trong video)
             btnGroup.append('text')
               .attr('x', 0)
               .attr('y', 0)
@@ -913,13 +909,11 @@ function renderMindmap(container){
         });
       }
 
-      // Kích hoạt cập nhật
       setTimeout(() => {
         updateToggleButtons();
         currentMmInstance.fit();
       }, 150);
 
-      // CÁC NÚT ĐIỀU KHIỂN TRÊN THANH CÔNG CỤ
       document.getElementById('zoomInBtn').onclick = () => currentMmInstance.rescale(1.25);
       document.getElementById('zoomOutBtn').onclick = () => currentMmInstance.rescale(0.8);
       document.getElementById('fitBtn').onclick = () => currentMmInstance.fit();
