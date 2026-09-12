@@ -172,7 +172,7 @@
 </div>
 
 <script>
-/* 0. THUẬT TOÁN SHA-256 THUẦN */
+/* 0. THUẬT TOÁN SHA-256 THUẦN (HOẠT ĐỘNG TRÊN MỌI THIẾT BỊ / OFFLINE FILE) */
 function pureSha256(ascii) {
   function rightRotate(value, amount) { return (value>>>amount) | (value<<(32 - amount)); }
   const mathPow = Math.pow;
@@ -732,7 +732,7 @@ function renderGenerateForm(){
   return wrap;
 }
 
-/* 5. GỌI GEMINI TẠO SƠ ĐỒ VÀ TRẮC NGHIỆM */
+/* 5. GỌI GEMINI 2.5-FLASH TẠO SƠ ĐỒ VÀ TRẮC NGHIỆM */
 async function generateLessonWithGemini(wrap){
   const apiKey = (document.getElementById('apiKeyInput').value || '').replace(/\s+/g, '');
   const textarea = wrap.querySelector('#contentInput');
@@ -804,7 +804,7 @@ YÊU CẦU:
   }
 
   try{
-    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const GEMINI_MODEL = 'gemini-2.5-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
     
     const response = await fetch(endpoint, {
@@ -814,7 +814,7 @@ YÊU CẦU:
         contents: [{ parts: parts }],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.75
+          temperature: 0.85
         }
       })
     });
@@ -850,7 +850,7 @@ YÊU CẦU:
         correctIndex: q.correctIndex,
         explanation: toNFC(q.explanation)
       })),
-      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size })),
+      rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, base64: f.base64 })),
       rawNoteText: manualText,
       createdAt: Date.now()
     };
@@ -866,7 +866,7 @@ YÊU CẦU:
   }
 }
 
-/* 6. TẠO LẠI BỘ TRẮC NGHIỆM RIÊNG */
+/* 6. TẠO LẠI BỘ TRẮC NGHIỆM RIÊNG (TỐI ƯU NHẸ DỰA TRÊN MIND MAP) */
 async function regenerateOnlyQuiz(count, level){
   const apiKey = (document.getElementById('apiKeyInput')?.value || '').replace(/\s+/g, '');
   if(!apiKey){
@@ -880,9 +880,10 @@ async function regenerateOnlyQuiz(count, level){
   if(regenBtn) regenBtn.disabled = true;
 
   const setQuizStatus = (html, isError = false) => {
-    if(!statusEl) return;
-    statusEl.style.color = isError ? 'var(--wrong)' : 'var(--muted)';
-    statusEl.innerHTML = html;
+    const el = document.getElementById('quizRegenStatus') || statusEl;
+    if(!el) return;
+    el.style.color = isError ? 'var(--wrong)' : 'var(--muted)';
+    el.innerHTML = html;
   };
 
   setQuizStatus(`<span class="loader"><span class="spinner"></span> Đang tạo bộ ${count} câu hỏi mới...</span>`);
@@ -894,8 +895,8 @@ async function regenerateOnlyQuiz(count, level){
     levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng và ca lâm sàng/thực tế phù hợp với nội dung bài học.";
   }
 
-  const sourceText = String(currentLesson.mindmapMarkdown || currentLesson.name || '').slice(0, 60000);
-  const noteText = String(currentLesson.rawNoteText || '').slice(0, 20000);
+  const sourceText = String(currentLesson.mindmapMarkdown || currentLesson.name || '').slice(0, 50000);
+  const noteText = String(currentLesson.rawNoteText || '').slice(0, 15000);
 
   const promptText = `Bạn là chuyên gia soạn đề thi Y Dược.
 Hãy tạo MỘT BỘ TRẮC NGHIỆM MỚI dựa CHỈ trên nội dung bài học dưới đây.
@@ -910,82 +911,91 @@ YÊU CẦU:
 - correctIndex là số nguyên 0, 1, 2 hoặc 3.
 - ${levelInstruction}
 - Giải thích ngắn gọn, rõ ràng, tối đa 2-3 câu cho mỗi câu hỏi.
-- Trả về JSON hợp lệ theo đúng schema được yêu cầu.`;
+- Chỉ trả về JSON hợp lệ theo dạng:
+{"questions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"..."}]}`;
 
-  const responseSchema = {
-    type: "OBJECT",
-    properties: {
-      questions: {
-        type: "ARRAY",
-        items: {
-          type: "OBJECT",
-          properties: {
-            question: { type: "STRING" },
-            options: {
-              type: "ARRAY",
-              items: { type: "STRING" },
-              minItems: 4,
-              maxItems: 4
-            },
-            correctIndex: { type: "INTEGER" },
-            explanation: { type: "STRING" }
-          },
-          required: ["question", "options", "correctIndex", "explanation"]
-        }
-      }
-    },
-    required: ["questions"]
-  };
-
-  try {
-    const GEMINI_MODEL = 'gemini-3.6-flash';
-    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
+  async function requestGemini(model){
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: promptText }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.65,
+          temperature: 0.6,
           maxOutputTokens: 32768
         }
       })
     });
 
-    const data = await response.json().catch(() => ({}));
-
+    let data = {};
+    try { data = await response.json(); } catch (_) {}
     if(!response.ok){
-      const apiMsg = data?.error?.message || `HTTP ${response.status}`;
-      throw new Error(apiMsg);
+      const message = data?.error?.message || `HTTP ${response.status}`;
+      const err = new Error(message);
+      err.httpStatus = response.status;
+      err.model = model;
+      throw err;
+    }
+    return {data, model};
+  }
+
+  try {
+    // Gemini 2.5 hiện có thể bị giới hạn trên một số project/key mới.
+    // Ưu tiên model mới, tự động fallback nếu model đầu không khả dụng.
+    const models = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    let result = null;
+    let lastErr = null;
+
+    for(const model of models){
+      try {
+        setQuizStatus(`<span class="loader"><span class="spinner"></span> Đang tạo ${count} câu bằng ${model}...</span>`);
+        result = await requestGemini(model);
+        break;
+      } catch(err){
+        lastErr = err;
+        console.warn(`Gemini ${model} failed:`, err);
+        // 400 có thể là lỗi request thật; nhưng vẫn thử model tiếp theo vì mỗi model có khác biệt nhỏ.
+        if(![400,401,403,404,405,429,500,503].includes(err.httpStatus)) break;
+      }
     }
 
-    const candidate = data?.candidates?.[0];
+    if(!result) throw lastErr || new Error('Không gọi được Gemini API.');
+
+    const candidate = result.data?.candidates?.[0];
     const finishReason = candidate?.finishReason || '';
     const generatedText = candidate?.content?.parts?.map(p => p.text || '').join('') || '';
 
     if(!generatedText){
       throw new Error(`Gemini không trả về nội dung${finishReason ? ` (${finishReason})` : ''}.`);
     }
-
     if(finishReason === 'MAX_TOKENS'){
-      throw new Error('Phản hồi bị cắt do quá dài. Hãy thử giảm số câu xuống 20-30 câu.');
+      throw new Error('Phản hồi bị cắt do quá dài. Hãy thử giảm số câu xuống 20 câu.');
+    }
+
+    let clean = generatedText.trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
+    // Nếu model lỡ thêm chữ trước/sau JSON, lấy phần object ngoài cùng.
+    const firstBrace = clean.indexOf('{');
+    const lastBrace = clean.lastIndexOf('}');
+    if(firstBrace >= 0 && lastBrace > firstBrace){
+      clean = clean.slice(firstBrace, lastBrace + 1);
     }
 
     let parsed;
     try {
-      const clean = generatedText
-        .trim()
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim();
       parsed = JSON.parse(clean);
     } catch(parseErr){
       console.error('Gemini raw response:', generatedText);
-      throw new Error('Gemini trả về JSON chưa hoàn chỉnh. Vui lòng bấm tạo lại một lần nữa.');
+      throw new Error('Gemini trả về JSON chưa hoàn chỉnh. Hãy thử tạo 20 câu hoặc bấm tạo lại.');
     }
 
     if(!Array.isArray(parsed.questions)){
@@ -1019,7 +1029,8 @@ YÊU CẦU:
     renderMain();
   } catch(err) {
     console.error('regenerateOnlyQuiz error:', err);
-    setQuizStatus(`❌ ${toNFC(err.message || 'Không thể tạo mới câu hỏi.')}`, true);
+    const code = err?.httpStatus ? `HTTP ${err.httpStatus}: ` : '';
+    setQuizStatus(`❌ ${code}${toNFC(err.message || 'Không thể tạo mới câu hỏi.')}`, true);
   } finally {
     const currentBtn = document.getElementById('regenQuizBtn');
     if(currentBtn) currentBtn.disabled = false;
@@ -1465,7 +1476,7 @@ function renderQuizScore(container, questions){
   container.appendChild(revWrap);
 }
 
-/* 9. REVIEW & LỊCH SỬ THI */
+/* 9. REVIEW & LỊCH SỬ THI (CHUẨN GIỜ VIỆT NAM GMT+7) */
 function renderHistory(container){
   const attempts = getStore('attempts:'+currentLessonId) || [];
   container.innerHTML = '';
@@ -1479,6 +1490,7 @@ function renderHistory(container){
     const d = new Date(att.date);
     item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} câu đúng</span>`;
     
+    // Luôn cố định múi giờ Việt Nam
     item.querySelector('span').textContent = d.toLocaleString('vi-VN', {
       timeZone: 'Asia/Ho_Chi_Minh',
       hour12: false,
