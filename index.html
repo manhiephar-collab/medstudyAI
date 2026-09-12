@@ -193,6 +193,7 @@
   .ai-history-actions .delete:hover{background:var(--wrong-soft)}
   .mm-ai-ask{cursor:pointer}
   .mm-ai-ask circle{fill:#fff;stroke:rgba(14,165,164,.35);stroke-width:1.2px;filter:drop-shadow(0 3px 6px rgba(21,95,104,.16))}
+  .mm-ai-ask{pointer-events:auto}
   .mm-ai-ask:hover circle{fill:#E1F7F5;stroke:var(--accent)}
   .mm-ai-ask text{fill:var(--accent-dark);font-size:8px;font-weight:800;font-family:var(--font-main);text-anchor:middle;dominant-baseline:central;pointer-events:none}
   @media(max-width:520px){.ai-knowledge-panel{padding:16px;border-radius:18px;max-height:88vh}.ai-actions .btn{width:auto!important}.ai-quick-prompts button{font-size:11px}}
@@ -1871,6 +1872,7 @@ function renderMindmap(container){
 
   const ctx = document.createElement('canvas').getContext('2d');
   const PAD_X = 15;
+  const AI_BADGE_RESERVE = 34;
   const PAD_Y = 10;
   const LINE_H = 19;
   const TOGGLE_OFFSET = 18;
@@ -1882,22 +1884,60 @@ function renderMindmap(container){
     if(depth === 1) return '600 14px "Be Vietnam Pro", sans-serif';
     return '500 13.3px "Be Vietnam Pro", sans-serif';
   }
-  function widthForDepth(depth){
-    if(depth === 0) return 320;
-    if(depth === 1) return 250;
-    if(depth === 2) return 245;
-    return 290;
+  function widthBoundsForDepth(depth){
+    const isMobile = (window.innerWidth || 0) <= 768;
+    if(depth === 0) return isMobile ? { min: 250, max: 360 } : { min: 280, max: 360 };
+    if(depth === 1) return isMobile ? { min: 245, max: 330 } : { min: 240, max: 320 };
+    if(depth === 2) return isMobile ? { min: 255, max: 350 } : { min: 250, max: 335 };
+    return isMobile ? { min: 250, max: 330 } : { min: 245, max: 320 };
   }
+  function rebalanceWrappedLines(lines, fullTextW){
+    if(lines.length < 2) return lines;
+    let changed = true;
+    while(changed){
+      changed = false;
+      const last = lines[lines.length - 1] || '';
+      const prev = lines[lines.length - 2] || '';
+      const prevWords = prev.split(/\s+/).filter(Boolean);
+      if(prevWords.length < 2) break;
+
+      const lastWidth = ctx.measureText(last).width;
+      const tooShortLastLine = lastWidth < fullTextW * 0.34 || last.split(/\s+/).filter(Boolean).length === 1;
+      if(!tooShortLastLine) break;
+
+      const movedWord = prevWords.pop();
+      const newPrev = prevWords.join(' ');
+      const newLast = movedWord + (last ? ' ' + last : '');
+      const newPrevWidth = ctx.measureText(newPrev).width;
+      const newLastWidth = ctx.measureText(newLast).width;
+
+      if(newPrev && newPrevWidth <= fullTextW && newLastWidth <= fullTextW){
+        lines[lines.length - 2] = newPrev;
+        lines[lines.length - 1] = newLast;
+        changed = true;
+      }
+    }
+    return lines;
+  }
+
   function wrapLines(text, depth, width){
     ctx.font = fontForDepth(depth);
-    const maxTextW = width - PAD_X*2;
+
+    // Chỉ dòng đầu tiên chừa chỗ cho nút AI ở góc phải.
+    // Các dòng sau dùng toàn bộ chiều rộng để tránh khoảng trống vô nghĩa.
+    const firstLineW = width - PAD_X*2 - AI_BADGE_RESERVE;
+    const fullTextW = width - PAD_X*2;
+
     const words = String(text || '').split(/\s+/).filter(Boolean);
     if(!words.length) return [''];
+
     const lines=[];
     let line='';
+
     for(const word of words){
+      const lineLimit = lines.length === 0 ? firstLineW : fullTextW;
       const test = line ? line + ' ' + word : word;
-      if(ctx.measureText(test).width <= maxTextW){
+      if(ctx.measureText(test).width <= lineLimit){
         line = test;
       }else{
         if(line) lines.push(line);
@@ -1905,11 +1945,46 @@ function renderMindmap(container){
       }
     }
     if(line) lines.push(line);
-    // Không giới hạn số dòng: ô sẽ tự tăng chiều cao theo lượng chữ.
-    return lines;
+
+    return rebalanceWrappedLines(lines, fullTextW);
+  }
+
+  function widthForDepth(depth, text){
+    ctx.font = fontForDepth(depth);
+    const bounds = widthBoundsForDepth(depth);
+    const raw = String(text || '').trim();
+    const words = raw.split(/\s+/).filter(Boolean);
+    const longestWordW = words.length ? Math.max(...words.map(w => ctx.measureText(w).width)) : 0;
+
+    // Đảm bảo tối thiểu vừa từ dài nhất và phần huy hiệu AI.
+    const startWidth = Math.max(bounds.min, Math.min(bounds.max, Math.ceil(longestWordW + PAD_X*2 + 18)));
+
+    let bestWidth = bounds.max;
+    let bestScore = Infinity;
+
+    for(let width = startWidth; width <= bounds.max; width += 6){
+      const lines = wrapLines(raw, depth, width);
+      const fullTextW = width - PAD_X*2;
+      const last = lines[lines.length - 1] || '';
+      const lastWidth = ctx.measureText(last).width;
+      const lineCount = Math.max(1, lines.length);
+
+      // Điểm thấp hơn là tốt hơn: ưu tiên ít dòng, dòng cuối không quá ngắn,
+      // nhưng cũng không mở rộng ô vô ích.
+      let score = lineCount * 22 + (width - bounds.min) * 0.12;
+      if(lineCount > 1 && lastWidth < fullTextW * 0.28) score += 9;
+      if(lineCount > 2) score += (lineCount - 2) * 6;
+
+      if(score < bestScore){
+        bestScore = score;
+        bestWidth = width;
+      }
+    }
+
+    return bestWidth;
   }
   function prepareNode(d){
-    d._cardWidth = widthForDepth(d.depth);
+    d._cardWidth = widthForDepth(d.depth, d.data.name || '');
     d._lines = wrapLines(d.data.name || '', d.depth, d._cardWidth);
     d._cardHeight = Math.max(42, PAD_Y*2 + d._lines.length*LINE_H);
   }
@@ -2004,7 +2079,9 @@ function renderMindmap(container){
       .attr('transform', d => `translate(${d._cardWidth+TOGGLE_OFFSET},${d._cardHeight/2})`);
     merged.select('.mm-toggle text').text(d => d.children ? '‹' : '›');
     merged.select('.mm-ai-ask')
-      .attr('transform', d => `translate(${Math.max(22, d._cardWidth-18)},18)`);
+      // Đặt nút AI trở lại bên trong góc phải của ô nội dung.
+      // Phần chữ đã được chừa sẵn khoảng trống bên phải để không bị che.
+      .attr('transform', d => `translate(${d._cardWidth - 18},18)`);
 
     nodeSel.exit().transition().duration(160).style('opacity',0).remove();
 
