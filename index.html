@@ -7,9 +7,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <style>
   :root{
@@ -27,21 +27,20 @@
     --wrong:#B83A2E;
     --wrong-soft:#FCEAE8;
     --radius:10px;
-    --font-stack: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-main: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{
-    height:100%;
+  html,body{height:100%;}
+  body{
     margin:0; background:var(--paper); color:var(--ink);
-    font-family:var(--font-stack) !important;
-    font-size:15px; line-height:1.55;
+    font-family:var(--font-main); font-size:15px; line-height:1.55;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  h1,h2,h3,h4,input,button,textarea,select,text,tspan{
-    font-family:var(--font-stack) !important;
+  h1,h2,h3,h4{
+    font-family:var(--font-main); font-weight:700; margin:0 0 8px;
+    letter-spacing: -0.2px;
   }
-  h1,h2,h3,h4{font-weight:700; margin:0 0 8px; letter-spacing:-0.2px;}
   .app{display:flex; min-height:100vh;}
 
   /* Sidebar */
@@ -57,7 +56,7 @@
   
   .api-box{padding:10px; background:#fafbfa; border:1px solid var(--line); border-radius:8px;}
   .api-box label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px; font-weight:600;}
-  .api-box input{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12px;}
+  .api-box input{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12px; font-family:var(--font-main);}
   .api-box a{display:block; font-size:11px; color:var(--accent); margin-top:4px; text-decoration:none;}
   
   .subject-block{border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:4px;}
@@ -91,11 +90,12 @@
   .add-row{display:flex; gap:6px; padding:6px 4px 0;}
   .add-row input{
     flex:1; min-width:0; font-size:13px; padding:6px 8px; border:1px solid var(--line);
-    border-radius:7px; background:#fff;
+    border-radius:7px; background:#fff; font-family:var(--font-main);
   }
   .btn{
     border:none; border-radius:7px; padding:7px 13px; font-size:13.5px; cursor:pointer;
-    background:var(--ink); color:#fff; white-space:nowrap; font-weight:600;
+    background:var(--ink); color:#fff; font-family:var(--font-main); white-space:nowrap;
+    font-weight:500;
   }
   .btn:hover{opacity:.9;}
   .btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent);}
@@ -104,23 +104,23 @@
   .btn:disabled{opacity:.5; cursor:default;}
   .sidebar-footer{margin-top:auto; padding-top:10px;}
   .add-subject{display:flex; gap:6px;}
-  .add-subject input{flex:1; padding:8px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px;}
+  .add-subject input{flex:1; padding:8px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; font-family:var(--font-main);}
 
   /* Main */
-  .main{flex:1; min-width:0; padding:24px 36px 60px; max-width:none; width:calc(100% - 300px);}
+  .main{flex:1; min-width:0; padding:24px 36px 60px; max-width:1260px;}
   .empty{margin-top:80px; text-align:center; color:var(--muted);}
-  .empty h2{color:var(--ink); font-size:22px;}
+  .empty h2{color:var(--ink); font-size:22px; font-weight:700;}
   .lesson-header{margin-bottom:14px;}
-  .eyebrow{color:var(--muted); font-size:13px; margin-bottom:4px; font-weight:600;}
-  .lesson-title{font-size:26px;}
+  .eyebrow{color:var(--muted); font-size:13px; margin-bottom:4px; font-weight:500;}
+  .lesson-title{font-size:26px; font-weight:700;}
   .tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin:16px 0 20px;}
   .tab{
     padding:9px 16px; cursor:pointer; font-size:14px; color:var(--muted);
-    border-bottom:2px solid transparent; margin-bottom:-1px; font-weight:600;
+    border-bottom:2px solid transparent; margin-bottom:-1px; font-weight:500;
   }
-  .tab.active{color:var(--ink); border-bottom:2px solid var(--accent); font-weight:700;}
+  .tab.active{color:var(--ink); border-bottom:2px solid var(--accent); font-weight:600;}
 
-  /* Upload Card */
+  /* Upload & Multi-file */
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:0 1px 3px rgba(0,0,0,0.03);}
   .upload-box{
     border:2px dashed #B8C2B0; padding:32px 20px; border-radius:8px; text-align:center;
@@ -137,14 +137,13 @@
   .file-chip .chip-del{cursor:pointer; color:var(--muted); font-weight:bold; padding:0 4px;}
   .file-chip .chip-del:hover{color:var(--wrong);}
 
-  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px; font-weight:600;}
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px; font-weight:500;}
   .field textarea{
-    width:100%; min-height:90px; resize:vertical; font-size:13.5px;
+    width:100%; min-height:90px; resize:vertical; font-family:var(--font-main); font-size:13.5px;
     padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff; line-height:1.5;
   }
   .field{margin-bottom:16px;}
   
-  /* Cụm tùy chọn trắc nghiệm */
   .quiz-options-grid{
     display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;
     margin-bottom:16px; padding:12px 14px; background:#F8FAF6; border:1px solid var(--line); border-radius:8px;
@@ -152,7 +151,7 @@
   .quiz-options-grid label{font-size:12.5px; color:var(--muted); font-weight:600; display:block; margin-bottom:5px;}
   .quiz-options-grid select{
     width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:6px;
-    font-size:13.5px; background:#fff; color:var(--ink);
+    font-size:13.5px; background:#fff; font-family:var(--font-main); color:var(--ink);
   }
 
   .status-line{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px;}
@@ -161,7 +160,7 @@
   .mindmap-wrapper{
     border:1px solid #343B42; border-radius:16px; background:#22262A;
     overflow:hidden; position:relative; box-shadow:0 10px 30px rgba(0,0,0,.22);
-    min-height:820px;
+    min-height:720px;
   }
   .mindmap-wrapper::before{
     content:""; position:absolute; inset:0; pointer-events:none;
@@ -175,10 +174,10 @@
   }
   .mindmap-toolbar button{
     background:#343A3F; color:#EEF2F0; border:1px solid rgba(255,255,255,.08); border-radius:7px;
-    padding:6px 10px; font-size:12px; cursor:pointer; font-weight:600;
+    padding:6px 10px; font-size:12px; cursor:pointer; font-weight:600; font-family:var(--font-main);
   }
   .mindmap-toolbar button:hover{background:#465049; transform:translateY(-1px);}
-  #mindmapViewport{width:100%; height:820px; display:block; cursor:grab; touch-action:none; position:relative; z-index:1;}
+  #mindmapViewport{width:100%; height:720px; display:block; cursor:grab; touch-action:none; position:relative; z-index:1;}
   #mindmapViewport:active{cursor:grabbing;}
   .mm-link{fill:none; stroke:#8997A4; stroke-width:1.55px; opacity:.8; vector-effect:non-scaling-stroke;}
   .mm-node{cursor:default;}
@@ -188,21 +187,21 @@
   .mm-node.depth-2 .mm-node-card{fill:#415A49;}
   .mm-node.depth-3 .mm-node-card{fill:#395241;}
   .mm-node.depth-4 .mm-node-card{fill:#33493B;}
-  .mm-node-label{fill:#F7F8F7; font-size:13.5px; font-weight:500; pointer-events:none;}
+  .mm-node-label{fill:#F7F8F7; font-size:13.5px; font-weight:500; font-family:var(--font-main); pointer-events:none;}
   .mm-node.depth-0 .mm-node-label{font-size:14.5px; font-weight:700;}
   .mm-node.depth-1 .mm-node-label{font-size:13.8px; font-weight:600;}
   .mm-toggle{cursor:pointer;}
   .mm-toggle circle{fill:#46534F; stroke:rgba(255,255,255,.1); stroke-width:1px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.22));}
   .mm-toggle:hover circle{fill:#64766F;}
-  .mm-toggle text{fill:#F4F7F5; font-size:12px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none;}
+  .mm-toggle text{fill:#F4F7F5; font-size:12px; font-weight:700; font-family:var(--font-main); text-anchor:middle; dominant-baseline:central; pointer-events:none;}
   .mm-hit{fill:transparent; cursor:pointer;}
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;}
   .mindmap-help .hint{font-size:13.5px;color:var(--muted);}
 
-  /* Quiz Top Bar */
+  /* Quiz Header Bar */
   .quiz-top-bar{
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
-    margin-bottom:14px; padding:10px 14px; background:#F8FAF6; border:1px solid var(--line); border-radius:8px;
+    margin-bottom:14px;
   }
   .q-progress{font-size:13.5px; color:var(--muted); font-weight:600;}
   .q-box{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
@@ -218,7 +217,7 @@
   .opt .letter{
     width:24px; height:24px; border-radius:50%; border:1px solid var(--line); background:#fff;
     display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; color:var(--muted);
-    font-weight:700;
+    font-weight:600;
   }
   .opt.correct .letter{background:var(--correct); border-color:var(--correct); color:#fff;}
   .opt.wrong .letter{background:var(--wrong); border-color:var(--wrong); color:#fff;}
@@ -228,7 +227,7 @@
   }
   .q-nav{display:flex; justify-content:space-between; margin-top:18px;}
   .score-card{text-align:center; padding:40px 20px;}
-  .score-num{font-weight:700; font-size:48px; color:var(--accent);}
+  .score-num{font-family:var(--font-main); font-weight:700; font-size:48px; color:var(--accent);}
   .review-list .rev-item{
     border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; background:#fff;
   }
@@ -262,10 +261,10 @@
     <div class="brand"><span class="mark"></span><h1>MedStudy AI</h1></div>
 
     <div class="api-box">
-      <label>Google Gemini API Key (hồ sơ dữ liệu):</label>
+      <label>Google Gemini API Key:</label>
       <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
       <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
-      <div id="dataProfileStatus" style="margin-top:7px;font-size:11px;color:var(--muted);line-height:1.35;word-break:break-word;"></div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.35;">Key được lưu bảo mật trong trình duyệt của bạn.</div>
     </div>
 
     <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
@@ -282,103 +281,21 @@
 </div>
 
 <script>
-/* 1. STORAGE THEO HỒ SƠ GEMINI API KEY + TIỆN ÍCH UNICODE NFC */
-const API_KEY_STORAGE = 'gemini_api_key';
-const LEGACY_MIGRATION_FLAG = 'medstudy_legacy_migrated_v1';
-let storageNamespace = 'medstudy_guest';
-
-// Tạo fingerprint ổn định từ API key để phân tách dữ liệu mà không ghi key vào tên storage.
-// Đây là namespace, không phải cơ chế mã hóa/bảo mật.
-function apiKeyFingerprint(key){
-  const str = String(key || '').trim();
-  if(!str) return 'guest';
-  let h1 = 0xdeadbeef ^ str.length, h2 = 0x41c6ce57 ^ str.length;
-  for(let i=0, ch; i<str.length; i++){
-    ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return ((h2 >>> 0).toString(16).padStart(8,'0') + (h1 >>> 0).toString(16).padStart(8,'0'));
-}
-
-function setStorageNamespaceFromApiKey(apiKey){
-  const fp = apiKeyFingerprint(apiKey);
-  storageNamespace = fp === 'guest' ? 'medstudy_guest' : `medstudy_api_${fp}`;
-  return fp;
-}
-function scopedKey(key){ return `${storageNamespace}:${key}`; }
-function rawGetStore(key){
+/* 1. STORAGE & TIỆN ÍCH CHUẨN HÓA UNICODE */
+function getStore(key){
   try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
   catch(e) { return null; }
 }
-function rawSetStore(key, value){
+function setStore(key, value){
   try { localStorage.setItem(key, JSON.stringify(value)); return true; }
   catch(e) { return false; }
 }
-function getStore(key){ return rawGetStore(scopedKey(key)); }
-function setStore(key, value){ return rawSetStore(scopedKey(key), value); }
 function delStore(key){
-  try { localStorage.removeItem(scopedKey(key)); } catch(e) {}
+  try { localStorage.removeItem(key); } catch(e) {}
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+// Ép về Unicode NFC để triệt tiêu lỗi tách rời dấu thanh
 function toNFC(str){ return String(str || '').normalize('NFC'); }
-
-function copyProfileData(fromPrefix, toPrefix){
-  try{
-    const sourceTocRaw = localStorage.getItem(`${fromPrefix}:toc`);
-    if(!sourceTocRaw || localStorage.getItem(`${toPrefix}:toc`)) return false;
-    const sourceToc = JSON.parse(sourceTocRaw);
-    localStorage.setItem(`${toPrefix}:toc`, sourceTocRaw);
-    const subjects = Array.isArray(sourceToc?.subjects) ? sourceToc.subjects : [];
-    const bySubject = sourceToc?.lessonsBySubject || {};
-    for(const subj of subjects){
-      const lessons = bySubject[subj.id] || [];
-      for(const lesson of lessons){
-        for(const base of [`lesson:${lesson.id}`, `attempts:${lesson.id}`]){
-          const v = localStorage.getItem(`${fromPrefix}:${base}`);
-          if(v !== null) localStorage.setItem(`${toPrefix}:${base}`, v);
-        }
-      }
-    }
-    return true;
-  }catch(e){ console.warn('Không thể sao chép hồ sơ dữ liệu:', e); return false; }
-}
-
-function migrateLegacyDataToCurrentProfile(){
-  try{
-    if(localStorage.getItem(LEGACY_MIGRATION_FLAG)) return;
-    if(localStorage.getItem(scopedKey('toc'))) return;
-    const legacyTocRaw = localStorage.getItem('toc');
-    if(!legacyTocRaw) return;
-    const legacyToc = JSON.parse(legacyTocRaw);
-    localStorage.setItem(scopedKey('toc'), legacyTocRaw);
-    const subjects = Array.isArray(legacyToc?.subjects) ? legacyToc.subjects : [];
-    const bySubject = legacyToc?.lessonsBySubject || {};
-    for(const subj of subjects){
-      const lessons = bySubject[subj.id] || [];
-      for(const lesson of lessons){
-        for(const base of [`lesson:${lesson.id}`, `attempts:${lesson.id}`]){
-          const v = localStorage.getItem(base);
-          if(v !== null) localStorage.setItem(scopedKey(base), v);
-        }
-      }
-    }
-    localStorage.setItem(LEGACY_MIGRATION_FLAG, '1');
-  }catch(e){ console.warn('Không thể migrate dữ liệu cũ:', e); }
-}
-
-function updateProfileStatus(apiKey){
-  const el = document.getElementById('dataProfileStatus');
-  if(!el) return;
-  if(!apiKey){
-    el.textContent = 'Hồ sơ dữ liệu: Khách (chưa gắn API key)';
-    return;
-  }
-  const fp = apiKeyFingerprint(apiKey);
-  el.textContent = `Hồ sơ dữ liệu API: ${fp.slice(0,8).toUpperCase()}`;
-}
 
 /* 2. APP STATE */
 let toc = { subjects: [], lessonsBySubject: {} };
@@ -393,56 +310,19 @@ let uploadedFilesQueue = [];
 let currentMmInstance = null;
 let currentMmRoot = null;
 
-function loadCurrentProfile(){
-  toc = { subjects: [], lessonsBySubject: {} };
-  openSubjects = new Set();
-  currentSubjectId = null;
-  currentLessonId = null;
-  currentLesson = null;
-  activeTab = 'mindmap';
-  quiz = { index:0, answers:[], started:false, done:false };
-  uploadedFilesQueue = [];
-  const savedToc = getStore('toc');
-  if(savedToc && Array.isArray(savedToc.subjects) && savedToc.lessonsBySubject){ toc = savedToc; }
-}
-
-function switchApiProfile(apiKey, allowGuestCopy=true){
-  const oldNamespace = storageNamespace;
-  const fp = setStorageNamespaceFromApiKey(apiKey);
-  if(apiKey && allowGuestCopy && !localStorage.getItem(scopedKey('toc'))){
-    copyProfileData('medstudy_guest', storageNamespace);
-  }
-  migrateLegacyDataToCurrentProfile();
-  loadCurrentProfile();
-  updateProfileStatus(apiKey);
-  renderSidebar();
-  renderMain();
-  return { oldNamespace, newNamespace: storageNamespace, fingerprint: fp };
-}
-
 function init(){
-  const input = document.getElementById('apiKeyInput');
-  const savedKey = localStorage.getItem(API_KEY_STORAGE) || '';
-  if(savedKey) input.value = savedKey;
-  setStorageNamespaceFromApiKey(savedKey);
-  migrateLegacyDataToCurrentProfile();
-  loadCurrentProfile();
-  updateProfileStatus(savedKey);
-
-  input.addEventListener('change', (e) => {
-    const nextKey = e.target.value.trim();
-    if(nextKey) localStorage.setItem(API_KEY_STORAGE, nextKey);
-    else localStorage.removeItem(API_KEY_STORAGE);
-    switchApiProfile(nextKey, true);
+  const savedKey = localStorage.getItem('gemini_api_key');
+  if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
+  document.getElementById('apiKeyInput').addEventListener('change', (e) => {
+    localStorage.setItem('gemini_api_key', e.target.value.trim());
   });
 
+  const savedToc = getStore('toc');
+  if(savedToc) toc = savedToc;
   renderSidebar();
   renderMain();
 }
-try { init(); } catch (err) {
-  console.error('MedStudy init error:', err);
-  document.body.innerHTML = `<div style="font-family:Arial,sans-serif;padding:32px;color:#8B1E1E;background:#FFF7F6;min-height:100vh"><h2>MedStudy AI không thể khởi động</h2><p>${String(err && err.message ? err.message : err)}</p><p>Hãy mở DevTools → Console để xem chi tiết.</p></div>`;
-}
+init();
 
 /* 3. SIDEBAR */
 function renderSidebar(){
@@ -608,8 +488,8 @@ function renderMain(){
   if(!currentLessonId){
     main.innerHTML = `
       <div class="empty">
-        <h2>${toNFC('Chọn hoặc tạo một bài học để bắt đầu ôn tập')}</h2>
-        <p>${toNFC('Chọn môn học bên trái, thêm bài học và nạp file giáo trình PDF.')}</p>
+        <h2>Chọn hoặc tạo một bài học để bắt đầu ôn tập</h2>
+        <p>Chọn môn học bên trái, thêm bài học và nạp file giáo trình PDF.</p>
       </div>`;
     return;
   }
@@ -832,9 +712,6 @@ CẤU TRÚC BẮT BUỘC:
 
 YÊU CẦU:
 1. SƠ ĐỒ TƯ DUY: Phân cấp rõ ràng bằng Markdown (#, ##, ###, -), súc tích, dễ nhớ.
-- Mỗi node phải NGẮN, ưu tiên 3–10 từ; KHÔNG nhét cả đoạn văn vào một node.
-- ## là chủ đề lớn; ### là nhóm ý; dấu - chỉ chứa một ý cốt lõi.
-- Tối đa 4–6 nhánh chính; mỗi nhóm tối đa 3–6 ý con để sơ đồ thoáng, dễ bật/xổ.
 2. TRẮC NGHIỆM:
 - Soạn ĐÚNG CHÍNH XÁC ${numQuestions} câu hỏi trắc nghiệm mới, đa dạng góc nhìn, KHÔNG trùng lặp.
 - Định hướng đề thi: ${levelInstruction}
@@ -1040,7 +917,7 @@ function renderMindmap(container){
   const wrap = document.createElement('div');
   wrap.innerHTML = `
     <div class="mindmap-help">
-      <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ. Kéo nền để di chuyển sơ đồ.</em></span>
+      <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ nhánh. Có thể kéo sơ đồ để xem phần ngoài màn hình.</em></span>
       <button class="btn ghost small" id="regenBtn">Nạp lại / Thêm tài liệu</button>
     </div>
     <div class="mindmap-wrapper" id="mmWrap">
@@ -1057,217 +934,250 @@ function renderMindmap(container){
 
   function markdownToTree(markdown){
     const lines = markdown.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    let root = { name: toNFC(currentLesson.name || 'Chủ đề'), children: [], depth:0 };
+    let root = { name: toNFC(currentLesson.name || 'Chủ đề'), children: [] };
     let h2 = null, h3 = null;
     for(const line of lines){
       if(/^#\s+/.test(line) && !/^##/.test(line)){
         root.name = toNFC(line.replace(/^#\s+/, '').trim()) || root.name;
       } else if(/^##\s+/.test(line) && !/^###/.test(line)){
-        h2 = { name: toNFC(line.replace(/^##\s+/, '').trim()), children: [], depth:1, parent:root };
+        h2 = { name: toNFC(line.replace(/^##\s+/, '').trim()), children: [] };
         root.children.push(h2); h3 = null;
       } else if(/^###\s+/.test(line)){
-        if(!h2){ h2 = {name:'Nội dung',children:[],depth:1,parent:root}; root.children.push(h2); }
-        h3 = { name: toNFC(line.replace(/^###\s+/, '').trim()), children: [], depth:2, parent:h2 };
+        if(!h2){ h2 = {name:'Nội dung',children:[]}; root.children.push(h2); }
+        h3 = { name: toNFC(line.replace(/^###\s+/, '').trim()), children: [] };
         h2.children.push(h3);
       } else if(/^[-*+]\s+/.test(line)){
-        const parent = h3 || h2 || root;
-        parent.children.push({ name: toNFC(line.replace(/^[-*+]\s+/, '').trim()), children: [], depth:parent.depth+1, parent });
+        const leaf = { name: toNFC(line.replace(/^[-*+]\s+/, '').trim()), children: [] };
+        if(h3) h3.children.push(leaf); else if(h2) h2.children.push(leaf); else root.children.push(leaf);
       }
     }
     return root;
   }
 
-  const root = markdownToTree(md);
-  let idCounter = 0;
-  (function assignIds(n){ n.__id = 'mm_' + (++idCounter); n.children.forEach(assignIds); })(root);
+  const data = markdownToTree(md);
+  const root = d3.hierarchy(data);
+  currentMmRoot = root;
 
-  // Mặc định mở vừa đủ để sơ đồ rõ như mẫu: hiện toàn bộ nhánh chính,
-  // mở nhánh chính đầu tiên sâu hơn, các nhánh còn lại giữ gọn.
-  (function initExpanded(n){
-    n.expanded = false;
-    if(n.depth === 0) n.expanded = true;
-    if(n.depth === 1 && n === root.children[0]) n.expanded = true;
-    if(n.depth === 2 && n.parent === root.children[0] && n.parent.children.indexOf(n) < 2) n.expanded = true;
-    n.children.forEach(initExpanded);
-  })(root);
-
-  const svg = wrap.querySelector('#mindmapViewport');
-  const NS = 'http://www.w3.org/2000/svg';
-  const scene = document.createElementNS(NS,'g');
-  const linksLayer = document.createElementNS(NS,'g');
-  const nodesLayer = document.createElementNS(NS,'g');
-  scene.append(linksLayer,nodesLayer); svg.appendChild(scene);
-
-  const measure = document.createElement('canvas').getContext('2d');
-  const CARD_H = 38;
-  const GAP_Y = 18;
-  const GAP_X = 68;
-  const TOGGLE_GAP = 19;
-  const PADDING_X = 14;
-  const MAX_W = {0:360,1:260,2:260,3:420,4:420};
-  const MIN_W = {0:220,1:160,2:125,3:120,4:120};
-
-  let scale = 0.96, tx = 0, ty = 0;
-  let didInitialCenter = false;
-
-  function fontForDepth(depth){
-    if(depth === 0) return '700 14.5px "Be Vietnam Pro", Arial, sans-serif';
-    if(depth === 1) return '600 13.8px "Be Vietnam Pro", Arial, sans-serif';
-    return '500 13.3px "Be Vietnam Pro", Arial, sans-serif';
-  }
-
-  function textMetrics(node){
-    measure.font = fontForDepth(node.depth);
-    const maxW = MAX_W[Math.min(node.depth,4)] || 420;
-    const minW = MIN_W[Math.min(node.depth,4)] || 120;
-    const full = String(node.name || '');
-    const natural = measure.measureText(full).width + PADDING_X*2;
-    const width = Math.max(minW, Math.min(maxW, natural));
-    let label = full;
-    if(natural > maxW){
-      const allowed = maxW - PADDING_X*2;
-      while(label.length > 2 && measure.measureText(label + '…').width > allowed) label = label.slice(0,-1);
-      label = label.replace(/[\s,;:.!?-]+$/,'') + '…';
-    }
-    return {width,label};
-  }
-
-  function visibleChildren(n){ return n.expanded ? n.children : []; }
-  function flattenVisible(){
-    const nodes=[];
-    (function walk(n){ nodes.push(n); visibleChildren(n).forEach(walk); })(root);
-    return nodes;
-  }
-
-  function layout(){
-    const visible = flattenVisible();
-    visible.forEach(n => Object.assign(n, textMetrics(n)));
-
-    // Tính Y theo lá để cha luôn nằm giữa cụm con.
-    let cursorY = 0;
-    function assignY(n){
-      const kids = visibleChildren(n);
-      if(!kids.length){
-        n.y = cursorY;
-        cursorY += CARD_H + GAP_Y;
-      } else {
-        kids.forEach(assignY);
-        n.y = (kids[0].y + kids[kids.length-1].y)/2;
-      }
-    }
-    assignY(root);
-
-    // X theo cột, dùng node rộng nhất của cột trước để không đè lên nhau.
-    const maxDepth = Math.max(...visible.map(n=>n.depth));
-    const depthMax = [];
-    for(let d=0; d<=maxDepth; d++){
-      depthMax[d] = Math.max(...visible.filter(n=>n.depth===d).map(n=>n.width), 120);
-    }
-    const depthX=[0];
-    for(let d=1; d<=maxDepth; d++) depthX[d] = depthX[d-1] + depthMax[d-1] + GAP_X + TOGGLE_GAP;
-    visible.forEach(n => n.x = depthX[n.depth] || 0);
-    return visible;
-  }
-
-  function svgEl(tag, attrs={}){
-    const el=document.createElementNS(NS,tag);
-    for(const [k,v] of Object.entries(attrs)) el.setAttribute(k,String(v));
-    return el;
-  }
-
-  function linkPath(a,b){
-    const sx = a.x + a.width + (a.children.length ? TOGGLE_GAP+8 : 8);
-    const sy = a.y;
-    const tx2 = b.x;
-    const ty2 = b.y;
-    const bend = Math.max(34,(tx2-sx)*0.52);
-    return `M${sx},${sy} C${sx+bend},${sy} ${tx2-bend},${ty2} ${tx2},${ty2}`;
-  }
-
-  function applyTransform(){ scene.setAttribute('transform',`translate(${tx} ${ty}) scale(${scale})`); }
-
-  function render({preserveView=true}={}){
-    const visible = layout();
-    linksLayer.replaceChildren();
-    nodesLayer.replaceChildren();
-
-    for(const n of visible){
-      if(n.parent && visible.includes(n.parent)){
-        linksLayer.appendChild(svgEl('path',{class:'mm-link',d:linkPath(n.parent,n)}));
-      }
-    }
-
-    for(const n of visible){
-      const g=svgEl('g',{class:`mm-node depth-${Math.min(n.depth,4)}`,transform:`translate(${n.x} ${n.y-CARD_H/2})`});
-      const rect=svgEl('rect',{class:'mm-node-card',rx:7,ry:7,width:n.width,height:CARD_H});
-      const text=svgEl('text',{class:'mm-node-label',x:PADDING_X,y:24}); text.textContent=n.label;
-      const title=svgEl('title'); title.textContent=n.name;
-      g.append(rect,text,title);
-
-      // Toàn bộ ô chữ có thể bật/xổ.
-      if(n.children.length){
-        const hit=svgEl('rect',{class:'mm-hit',x:0,y:0,width:n.width,height:CARD_H});
-        hit.addEventListener('click',e=>{e.stopPropagation(); n.expanded=!n.expanded; render();});
-        g.appendChild(hit);
-        const tg=svgEl('g',{class:'mm-toggle',transform:`translate(${n.width+TOGGLE_GAP} ${CARD_H/2})`});
-        const c=svgEl('circle',{r:9});
-        const tt=svgEl('text',{x:0,y:0.5}); tt.textContent=n.expanded?'‹':'›';
-        tg.append(c,tt);
-        tg.addEventListener('click',e=>{e.stopPropagation(); n.expanded=!n.expanded; render();});
-        g.appendChild(tg);
-      }
-      nodesLayer.appendChild(g);
-    }
-    applyTransform();
-    if(!preserveView || !didInitialCenter){ centerOnRoot(); didInitialCenter=true; }
-  }
-
-  function centerOnRoot(){
-    const w=svg.clientWidth || 1000, h=svg.clientHeight || 820;
-    scale = Math.max(.82, Math.min(1.02, scale));
-    tx = Math.max(42,w*0.08) - root.x*scale;
-    ty = h/2 - root.y*scale;
-    applyTransform();
-  }
-
-  function zoomBy(factor){
-    const w=svg.clientWidth/2, h=svg.clientHeight/2;
-    const old=scale;
-    scale=Math.max(.55,Math.min(2.2,scale*factor));
-    tx = w - (w-tx)*(scale/old);
-    ty = h - (h-ty)*(scale/old);
-    applyTransform();
-  }
-
-  // Pan + wheel zoom, không cần thư viện ngoài => ổn định khi public GitHub Pages.
-  let dragging=false,lastX=0,lastY=0;
-  svg.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; svg.setPointerCapture(e.pointerId); });
-  svg.addEventListener('pointermove',e=>{ if(!dragging)return; tx+=e.clientX-lastX; ty+=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; applyTransform(); });
-  svg.addEventListener('pointerup',()=>dragging=false);
-  svg.addEventListener('pointercancel',()=>dragging=false);
-  svg.addEventListener('wheel',e=>{ e.preventDefault(); const rect=svg.getBoundingClientRect(); const mx=e.clientX-rect.left, my=e.clientY-rect.top; const old=scale; const factor=e.deltaY<0?1.09:0.92; scale=Math.max(.55,Math.min(2.2,scale*factor)); tx=mx-(mx-tx)*(scale/old); ty=my-(my-ty)*(scale/old); applyTransform(); },{passive:false});
-
-  function setExpandedRec(n,value){ n.expanded=value && n.children.length>0; n.children.forEach(c=>setExpandedRec(c,value)); }
-  wrap.querySelector('#expandAllBtn').onclick=()=>{ setExpandedRec(root,true); render(); };
-  wrap.querySelector('#collapseAllBtn').onclick=()=>{
-    (function collapse(n){ n.expanded = n.depth===0; n.children.forEach(collapse); })(root);
-    render({preserveView:false});
-  };
-  wrap.querySelector('#zoomInBtn').onclick=()=>zoomBy(1.18);
-  wrap.querySelector('#zoomOutBtn').onclick=()=>zoomBy(.85);
-  wrap.querySelector('#fitBtn').onclick=()=>centerOnRoot();
-
-  wrap.querySelector('#regenBtn').addEventListener('click',()=>{
-    if(!confirm('Bạn có muốn nạp lại tài liệu để tạo mới toàn bộ bài học?')) return;
-    currentLesson=null; uploadedFilesQueue=[]; renderMain();
+  root.each(d => {
+    if(d.depth >= 2 && d.children){ d._children = d.children; d.children = null; }
   });
 
-  currentMmRoot=root;
-  currentMmInstance={root,render,centerOnRoot};
-  render({preserveView:false});
+  const svg = d3.select(wrap.querySelector('#mindmapViewport'));
+  const viewportNode = svg.node();
+  const scene = svg.append('g').attr('class','mm-scene');
+  const linkLayer = scene.append('g').attr('class','mm-links');
+  const nodeLayer = scene.append('g').attr('class','mm-nodes');
+
+  const zoom = d3.zoom().scaleExtent([0.55, 2.8]).on('zoom', ev => scene.attr('transform', ev.transform));
+  svg.call(zoom).on('dblclick.zoom', null);
+  currentMmInstance = { svg, scene, zoom, root };
+
+  const ctx = document.createElement('canvas').getContext('2d');
+  const PAD_X = 15;
+  const PAD_Y = 10;
+  const LINE_H = 19;
+  const TOGGLE_OFFSET = 18;
+  const DEPTH_GAP = 88;
+  const VERTICAL_GAP = 96;
+  const MAX_LINES = 3;
+
+  function fontForDepth(depth){
+    if(depth === 0) return '700 15px "Be Vietnam Pro", sans-serif';
+    if(depth === 1) return '600 14px "Be Vietnam Pro", sans-serif';
+    return '500 13.3px "Be Vietnam Pro", sans-serif';
+  }
+  function widthForDepth(depth){
+    if(depth === 0) return 320;
+    if(depth === 1) return 250;
+    if(depth === 2) return 245;
+    return 290;
+  }
+  function wrapLines(text, depth, width){
+    ctx.font = fontForDepth(depth);
+    const maxTextW = width - PAD_X*2;
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if(!words.length) return [''];
+    const lines=[];
+    let line='';
+    for(const word of words){
+      const test = line ? line + ' ' + word : word;
+      if(ctx.measureText(test).width <= maxTextW){
+        line = test;
+      }else{
+        if(line) lines.push(line);
+        line = word;
+      }
+    }
+    if(line) lines.push(line);
+    if(lines.length > MAX_LINES){
+      const cut = lines.slice(0, MAX_LINES);
+      let last = cut[MAX_LINES-1];
+      while(last.length > 1 && ctx.measureText(last + '…').width > maxTextW){ last = last.slice(0,-1); }
+      cut[MAX_LINES-1] = last.replace(/[\s,;:.!?-]+$/,'') + '…';
+      return cut;
+    }
+    return lines;
+  }
+  function prepareNode(d){
+    d._cardWidth = widthForDepth(d.depth);
+    d._lines = wrapLines(d.data.name || '', d.depth, d._cardWidth);
+    d._cardHeight = Math.max(42, PAD_Y*2 + d._lines.length*LINE_H);
+  }
+  function hasAnyChildren(d){ return !!((d.children && d.children.length) || (d._children && d._children.length)); }
+  function toggleNode(d){
+    if(!hasAnyChildren(d)) return;
+    if(d.children){ d._children = d.children; d.children = null; }
+    else { d.children = d._children; d._children = null; }
+    update(d);
+  }
+
+  function update(source){
+    const tree = d3.tree()
+      .nodeSize([VERTICAL_GAP, 1])
+      .separation((a,b) => a.parent === b.parent ? 1 : 1.15);
+    tree(root);
+
+    const nodes = root.descendants();
+    const links = root.links();
+    nodes.forEach(prepareNode);
+
+    const maxDepth = d3.max(nodes, d => d.depth) || 0;
+    const depthWidths = Array.from({length:maxDepth+1}, (_,depth) => {
+      const vals = nodes.filter(d=>d.depth===depth).map(d=>d._cardWidth);
+      return vals.length ? d3.max(vals) : 220;
+    });
+    const depthX = [0];
+    for(let depth=1; depth<=maxDepth; depth++){
+      depthX[depth] = depthX[depth-1] + depthWidths[depth-1] + DEPTH_GAP + TOGGLE_OFFSET;
+    }
+    nodes.forEach(d => {
+      d.plotX = depthX[d.depth] || 0;
+      d.plotY = d.x;
+    });
+
+    const nodeSel = nodeLayer.selectAll('g.mm-node').data(nodes, d => d.data.__id || (d.data.__id = uid()));
+    const enter = nodeSel.enter().append('g')
+      .attr('class', d => `mm-node depth-${Math.min(d.depth,4)}`)
+      .attr('transform', d => `translate(${source?.plotX ?? d.plotX},${source?.plotY ?? d.plotY})`)
+      .style('opacity',0);
+
+    enter.append('rect').attr('class','mm-node-card').attr('rx',9).attr('ry',9);
+    enter.append('text').attr('class','mm-node-label');
+    enter.append('title');
+    enter.append('rect').attr('class','mm-hit').on('click', (ev,d)=>{ ev.stopPropagation(); toggleNode(d); });
+    const tg = enter.append('g').attr('class','mm-toggle').on('click',(ev,d)=>{ev.stopPropagation();toggleNode(d);});
+    tg.append('circle').attr('r',10);
+    tg.append('text').attr('y',.5);
+
+    const merged = enter.merge(nodeSel);
+    merged.attr('class', d => `mm-node depth-${Math.min(d.depth,4)}`)
+      .transition().duration(260).ease(d3.easeCubicOut)
+      .style('opacity',1)
+      .attr('transform', d => `translate(${d.plotX},${d.plotY-d._cardHeight/2})`);
+
+    merged.select('.mm-node-card')
+      .attr('width', d => d._cardWidth)
+      .attr('height', d => d._cardHeight);
+
+    merged.select('.mm-node-label').each(function(d){
+      const text = d3.select(this);
+      text.selectAll('tspan').remove();
+      d._lines.forEach((line,i) => {
+        text.append('tspan')
+          .attr('x', PAD_X)
+          .attr('y', PAD_Y + LINE_H*(i+0.78))
+          .text(toNFC(line));
+      });
+    });
+
+    merged.select('title').text(d => toNFC(d.data.name || ''));
+    merged.select('.mm-hit')
+      .attr('width', d => d._cardWidth)
+      .attr('height', d => d._cardHeight);
+    merged.select('.mm-toggle')
+      .style('display', d => hasAnyChildren(d) ? null : 'none')
+      .attr('transform', d => `translate(${d._cardWidth+TOGGLE_OFFSET},${d._cardHeight/2})`);
+    merged.select('.mm-toggle text').text(d => d.children ? '‹' : '›');
+
+    nodeSel.exit().transition().duration(160).style('opacity',0).remove();
+
+    function linkPath(l){
+      const sx = l.source.plotX + l.source._cardWidth + (hasAnyChildren(l.source) ? TOGGLE_OFFSET+10 : 8);
+      const sy = l.source.plotY;
+      const tx = l.target.plotX;
+      const ty = l.target.plotY;
+      const bend = Math.max(38, (tx-sx)*0.5);
+      return `M${sx},${sy} C${sx+bend},${sy} ${tx-bend},${ty} ${tx},${ty}`;
+    }
+
+    const linkSel = linkLayer.selectAll('path.mm-link').data(links, d => d.target.data.__id);
+    linkSel.enter().append('path').attr('class','mm-link')
+      .attr('d', d => {
+        const x=source?.plotX||0, y=source?.plotY||0;
+        return `M${x},${y} C${x},${y} ${x},${y} ${x},${y}`;
+      })
+      .merge(linkSel)
+      .transition().duration(260).ease(d3.easeCubicOut)
+      .attr('d',linkPath);
+    linkSel.exit().transition().duration(160).style('opacity',0).remove();
+  }
+
+  function expandRecursively(d){
+    if(d._children){ d.children=d._children; d._children=null; }
+    if(d.children) d.children.forEach(expandRecursively);
+  }
+  function collapseFromDepth(d, depth){
+    const kids = d.children || d._children;
+    if(kids) kids.forEach(c => collapseFromDepth(c, depth));
+    if(d.depth >= depth && d.children){ d._children=d.children; d.children=null; }
+  }
+
+  function readableFit(preferredScale=0.86){
+    const box = scene.node().getBBox();
+    if(!box.width || !box.height) return;
+    const width = viewportNode.clientWidth, height = viewportNode.clientHeight;
+    const marginX = 70, marginY = 64;
+    const fitScale = Math.min((width-marginX*2)/box.width, (height-marginY*2)/box.height);
+    const scale = Math.min(1.05, Math.max(0.72, Math.min(preferredScale, fitScale > 0.72 ? fitScale : preferredScale)));
+    const rootNode = root;
+    const rootCenterX = rootNode.plotX + rootNode._cardWidth/2;
+    const rootCenterY = rootNode.plotY;
+    const tx = Math.max(70, width*0.12) - rootCenterX*scale;
+    const ty = height/2 - rootCenterY*scale;
+    svg.transition().duration(320).ease(d3.easeCubicOut)
+      .call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(scale));
+  }
+
+  function centerCurrent(){
+    readableFit(0.88);
+  }
+
+  update(root);
+  setTimeout(() => readableFit(0.9), 90);
+
+  wrap.querySelector('#expandAllBtn').onclick = () => {
+    expandRecursively(root);
+    update(root);
+    setTimeout(() => readableFit(0.78), 220);
+  };
+  wrap.querySelector('#collapseAllBtn').onclick = () => {
+    collapseFromDepth(root, 2);
+    update(root);
+    setTimeout(() => readableFit(0.9), 220);
+  };
+  wrap.querySelector('#zoomInBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,1.18);
+  wrap.querySelector('#zoomOutBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,.85);
+  wrap.querySelector('#fitBtn').onclick = centerCurrent;
+
+  wrap.querySelector('#regenBtn').addEventListener('click', () => {
+    if(!confirm('Bạn có muốn nạp lại tài liệu để tạo mới toàn bộ bài học?')) return;
+    currentLesson = null;
+    uploadedFilesQueue = [];
+    renderMain();
+  });
 }
 
-/* 8. RENDER TRẮC NGHIỆM VỚI THANH CÔNG CỤ TÙY BIẾN */
+/* 8. RENDER TRẮC NGHIỆM */
 function renderQuiz(container){
   container.innerHTML = '';
   const questions = currentLesson.questions || [];
@@ -1277,14 +1187,14 @@ function renderQuiz(container){
   topControls.innerHTML = `
     <div class="q-progress">Câu ${quiz.done ? questions.length : quiz.index+1} / ${questions.length}</div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-      <select id="quickCountSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px;">
+      <select id="quickCountSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px; font-family:var(--font-main);">
         <option value="10">10 câu</option>
         <option value="15" ${questions.length===15?'selected':''}>15 câu</option>
         <option value="20" ${questions.length===20?'selected':''}>20 câu</option>
         <option value="30" ${questions.length===30?'selected':''}>30 câu</option>
         <option value="40" ${questions.length===40?'selected':''}>40 câu</option>
       </select>
-      <select id="quickLevelSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px;">
+      <select id="quickLevelSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px; font-family:var(--font-main);">
         <option value="standard">Cân bằng</option>
         <option value="hard">Nâng cao / Bẫy</option>
         <option value="clinical">Thực hành / Ứng dụng</option>
@@ -1308,7 +1218,7 @@ function renderQuiz(container){
   if(questions.length === 0){
     const emptyBox = document.createElement('div');
     emptyBox.className = 'card';
-    emptyBox.textContent = toNFC('Bài học này chưa có câu hỏi. Bấm "Tạo bộ câu hỏi mới" ở trên để sinh đề thi.');
+    emptyBox.textContent = 'Bài học này chưa có câu hỏi. Bấm "Tạo bộ câu hỏi mới" ở góc trên để tạo đề thi.';
     container.appendChild(emptyBox);
     return;
   }
@@ -1347,7 +1257,7 @@ function renderQuiz(container){
     const ex = document.createElement('div');
     ex.className = 'explain';
     const exTitle = document.createElement('strong');
-    exTitle.textContent = toNFC('💡 Giải thích chi tiết:');
+    exTitle.textContent = '💡 Giải thích chi tiết:';
     const exText = document.createElement('div');
     exText.style.marginTop = '4px';
     exText.textContent = toNFC(q.explanation);
@@ -1358,12 +1268,12 @@ function renderQuiz(container){
   const nav = document.createElement('div');
   nav.className = 'q-nav';
   const prevBtn = document.createElement('button');
-  prevBtn.className = 'btn ghost'; prevBtn.textContent = toNFC('Câu trước'); prevBtn.disabled = i===0;
+  prevBtn.className = 'btn ghost'; prevBtn.textContent = 'Câu trước'; prevBtn.disabled = i===0;
   prevBtn.addEventListener('click', () => { quiz.index--; renderQuiz(container); });
   
   const nextBtn = document.createElement('button');
   nextBtn.className = 'btn';
-  nextBtn.textContent = toNFC(i === questions.length-1 ? 'Xem tổng kết kết quả' : 'Câu tiếp theo');
+  nextBtn.textContent = i === questions.length-1 ? 'Xem tổng kết kết quả' : 'Câu tiếp theo';
   nextBtn.disabled = already === undefined;
   nextBtn.addEventListener('click', () => {
     if(i === questions.length-1){
@@ -1400,9 +1310,9 @@ function renderQuizScore(container, questions){
   const score = answers.filter(a=>a.correct).length;
   const wrap = document.createElement('div');
   wrap.className = 'card score-card';
-  wrap.innerHTML = `<div class="score-num">${score}/${questions.length}</div><p style="color:var(--muted)">${toNFC('Số câu trả lời đúng')}</p>
+  wrap.innerHTML = `<div class="score-num">${score}/${questions.length}</div><p style="color:var(--muted)">Số câu trả lời đúng</p>
     <div style="display:flex; justify-content:center; gap:8px; margin-top:14px;">
-      <button class="btn" id="retryBtn">${toNFC('Làm lại bài thi này')}</button>
+      <button class="btn" id="retryBtn">Làm lại bài thi này</button>
     </div>`;
   container.appendChild(wrap);
   wrap.querySelector('#retryBtn').addEventListener('click', () => { 
@@ -1418,18 +1328,18 @@ function renderQuizScore(container, questions){
     item.className = 'rev-item';
     const top = document.createElement('div');
     const tag = document.createElement('span');
-    tag.className = `tag ${a.correct?'ok':'bad'}`; tag.textContent = toNFC(a.correct ? 'ĐÚNG' : 'SAI');
+    tag.className = `tag ${a.correct?'ok':'bad'}`; tag.textContent = a.correct ? 'ĐÚNG' : 'SAI';
     const st = document.createElement('strong'); st.textContent = toNFC(`Câu ${idx+1}: ${a.question}`);
     top.append(tag, st);
     const choice = document.createElement('div'); choice.style.cssText='margin-top:6px;font-size:14px;';
-    choice.append(toNFC('Bạn chọn: '));
+    choice.append('Bạn chọn: ');
     const em = document.createElement('em'); em.textContent = toNFC(a.chosenIndex !== undefined ? a.options[a.chosenIndex] : '(chưa chọn)'); choice.appendChild(em);
     if(!a.correct){
-      choice.append(toNFC(' — 🎯 Đáp án đúng: '));
+      choice.append(' — 🎯 Đáp án đúng: ');
       const b = document.createElement('b'); b.style.color='var(--correct)'; b.textContent = toNFC(a.options[a.correctIndex] || ''); choice.appendChild(b);
     }
     item.append(top, choice);
-    if(a.explanation){ const why=document.createElement('div'); why.style.cssText='margin-top:8px;color:var(--muted);font-size:13.5px;'; why.textContent=toNFC('💡 '+a.explanation); item.appendChild(why); }
+    if(a.explanation){ const why=document.createElement('div'); why.style.cssText='margin-top:8px;color:var(--muted);font-size:13.5px;'; why.textContent='💡 '+toNFC(a.explanation); item.appendChild(why); }
     revWrap.appendChild(item);
   });
   container.appendChild(revWrap);
@@ -1440,14 +1350,14 @@ function renderHistory(container){
   const attempts = getStore('attempts:'+currentLessonId) || [];
   container.innerHTML = '';
   if(attempts.length === 0){
-    container.innerHTML = `<div class="card">${toNFC('Chưa có lượt thi nào cho bài học này. Hãy làm bài thi ở tab Trắc nghiệm.')}</div>`;
+    container.innerHTML = '<div class="card">Chưa có lượt thi nào cho bài học này. Hãy làm bài thi ở tab Trắc nghiệm.</div>';
     return;
   }
   attempts.forEach((att) => {
     const item = document.createElement('div');
     item.className = 'hist-item';
     const d = new Date(att.date);
-    item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} ${toNFC('câu đúng')}</span>`;
+    item.innerHTML = `<span></span><span style="font-weight:600;color:var(--accent);">${att.score}/${att.total} câu đúng</span>`;
     item.querySelector('span').textContent = d.toLocaleString('vi-VN');
     item.addEventListener('click', () => renderAttemptDetail(container, att));
     container.appendChild(item);
@@ -1455,19 +1365,19 @@ function renderHistory(container){
 }
 
 function renderAttemptDetail(container, att){
-  container.innerHTML = `<button class="btn ghost small" id="backBtn" style="margin-bottom:14px;">← ${toNFC('Quay lại danh sách lịch sử')}</button>`;
+  container.innerHTML = `<button class="btn ghost small" id="backBtn" style="margin-bottom:14px;">← Quay lại danh sách lịch sử</button>`;
   const revWrap = document.createElement('div');
   revWrap.className = 'review-list';
   att.answers.forEach((a, idx) => {
     const item = document.createElement('div');
     item.className = 'rev-item';
-    item.innerHTML = `<div><span class="tag ${a.correct?'ok':'bad'}">${toNFC(a.correct?'ĐÚNG':'SAI')}</span><strong></strong></div><div class="hist-detail" style="margin-top:7px;font-size:13.5px;color:var(--muted)"></div>`;
+    item.innerHTML = `<div><span class="tag ${a.correct?'ok':'bad'}">${a.correct?'ĐÚNG':'SAI'}</span><strong></strong></div><div class="hist-detail" style="margin-top:7px;font-size:13.5px;color:var(--muted)"></div>`;
     item.querySelector('strong').textContent = toNFC(`Câu ${idx+1}: ${a.question}`);
     const detail = item.querySelector('.hist-detail');
     if(Array.isArray(a.options)){
       const chosen = toNFC(a.chosenIndex !== undefined ? a.options[a.chosenIndex] : '(chưa chọn)');
       const correct = toNFC(a.options[a.correctIndex] || '');
-      detail.textContent = toNFC(`Bạn chọn: ${chosen}${a.correct ? '' : ' — Đáp án đúng: ' + correct}${a.explanation ? ' — ' + a.explanation : ''}`);
+      detail.textContent = `Bạn chọn: ${chosen}${a.correct ? '' : ' — Đáp án đúng: ' + correct}${a.explanation ? ' — ' + toNFC(a.explanation) : ''}`;
     }
     revWrap.appendChild(item);
   });
