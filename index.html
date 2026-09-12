@@ -156,6 +156,7 @@
       </div>
       <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
       <div class="sync-status" id="syncStatusLine">☁️ Dữ liệu ngoại tuyến</div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.45;">Mỗi API Key tương ứng với một kho dữ liệu riêng.</div>
     </div>
 
     <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
@@ -254,44 +255,163 @@ function setSyncMsg(msg, isErr = false) {
   const el = document.getElementById('syncStatusLine');
   if (el) {
     el.textContent = msg;
-    el.style.color = isErr ? 'var(--wrong)' : (msg.includes('Đã đồng bộ') ? 'var(--correct)' : 'var(--muted)');
+    const ok = msg.includes('Đã đồng bộ') || msg.includes('Đã sao lưu') || msg.includes('Kho dữ liệu mới');
+    el.style.color = isErr ? 'var(--wrong)' : (ok ? 'var(--correct)' : 'var(--muted)');
   }
+}
+
+/*
+  MỖI GEMINI API KEY = MỘT KHO DỮ LIỆU RIÊNG
+  - API key được băm SHA-256 -> uid 24 ký tự.
+  - Firestore lưu tại users/{uid}.
+  - LocalStorage cũng được namespace theo uid để dữ liệu của các API không trộn nhau.
+*/
+let activeUid = null;
+
+function accountStorageKey(key, uidOverride = null) {
+  const uidValue = uidOverride || activeUid;
+  return uidValue ? `medstudy:${uidValue}:${key}` : key;
+}
+
+function getStore(key) {
+  try {
+    const val = localStorage.getItem(accountStorageKey(key));
+    return val ? JSON.parse(val) : null;
+  } catch (e) {
+    console.error('getStore error:', e);
+    return null;
+  }
+}
+
+function setStore(key, value) {
+  try {
+    localStorage.setItem(accountStorageKey(key), JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.error('setStore error:', e);
+    return false;
+  }
+}
+
+function delStore(key) {
+  try {
+    localStorage.removeItem(accountStorageKey(key));
+  } catch (e) {
+    console.error('delStore error:', e);
+  }
+}
+
+/* Chỉ dùng một lần để chuyển cache cũ (toc / lesson:* / attempts:*) sang API đã lưu trên máy. */
+function migrateLegacyLocalCacheToAccount(uidValue) {
+  if (!uidValue) return;
+  const marker = `medstudy:migrated:${uidValue}`;
+  if (localStorage.getItem(marker) === '1') return;
+
+  const namespacedToc = localStorage.getItem(accountStorageKey('toc', uidValue));
+  if (!namespacedToc) {
+    const oldToc = localStorage.getItem('toc');
+    if (oldToc) localStorage.setItem(accountStorageKey('toc', uidValue), oldToc);
+  }
+
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('lesson:') || k.startsWith('attempts:'))) keys.push(k);
+  }
+  for (const k of keys) {
+    const oldVal = localStorage.getItem(k);
+    const newKey = accountStorageKey(k, uidValue);
+    if (oldVal !== null && localStorage.getItem(newKey) === null) {
+      localStorage.setItem(newKey, oldVal);
+    }
+  }
+  localStorage.setItem(marker, '1');
+}
+
+function resetUiForAccountSwitch() {
+  toc = { subjects: [], lessonsBySubject: {} };
+  openSubjects.clear();
+  currentSubjectId = null;
+  currentLessonId = null;
+  currentLesson = null;
+  activeTab = 'mindmap';
+  quiz = { index:0, answers:[], started:false, done:false };
+  uploadedFilesQueue = [];
+  currentMmInstance = null;
+  currentMmRoot = null;
 }
 
 async function syncFromCloud(apiKey) {
   if (!apiKey) return;
-  setSyncMsg("☁️ Đang đồng bộ...");
+
+  const cleanKey = apiKey.replace(/\s+/g, '');
+  const uidValue = getUserIdFromApiKey(cleanKey);
+  if (!uidValue) return;
+
+  setSyncMsg('☁️ Đang tải kho dữ liệu...');
+
   try {
-    const uid = getUserIdFromApiKey(apiKey);
-    const doc = await db.collection("users").doc(uid).get();
+    activeUid = uidValue;
+    resetUiForAccountSwitch();
+    activeUid = uidValue;
+
+    const doc = await db.collection('users').doc(uidValue).get();
+
     if (doc.exists) {
-      const data = doc.data();
-      if (data.toc) setStore('toc', data.toc);
-      if (data.lessons) {
+      const data = doc.data() || {};
+      toc = data.toc || { subjects: [], lessonsBySubject: {} };
+      setStore('toc', toc);
+
+      if (data.lessons && typeof data.lessons === 'object') {
         for (const [k, v] of Object.entries(data.lessons)) setStore(k, v);
       }
-      if (data.attempts) {
+      if (data.attempts && typeof data.attempts === 'object') {
         for (const [k, v] of Object.entries(data.attempts)) setStore(k, v);
       }
-      toc = data.toc || { subjects: [], lessonsBySubject: {} };
+
       renderSidebar();
       renderMain();
-      setSyncMsg(`☁️ Đã đồng bộ (${uid.slice(0,6)})`);
-    } else {
-      setSyncMsg(`☁️ Sẵn sàng lưu (${uid.slice(0,6)})`);
-      await syncToCloud();
+      setSyncMsg(`☁️ Đã đồng bộ (${uidValue.slice(0,6)})`);
+      return;
     }
+
+    // API hoàn toàn mới: KHÔNG lấy dữ liệu của API trước để đẩy sang.
+    toc = { subjects: [], lessonsBySubject: {} };
+    setStore('toc', toc);
+    renderSidebar();
+    renderMain();
+
+    await db.collection('users').doc(uidValue).set({
+      toc,
+      lessons: {},
+      attempts: {},
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }, { merge: true });
+
+    setSyncMsg(`☁️ Kho dữ liệu mới (${uidValue.slice(0,6)})`);
   } catch (err) {
     console.error(err);
-    setSyncMsg("☁️ Lỗi kết nối đám mây", true);
+    setSyncMsg('☁️ Lỗi kết nối đám mây', true);
   }
 }
 
 async function syncToCloud() {
   const apiKey = (document.getElementById('apiKeyInput')?.value || '').replace(/\s+/g, '');
   if (!apiKey) return;
+
+  const uidValue = getUserIdFromApiKey(apiKey);
+  if (!uidValue) return;
+
+  // Chặn trường hợp UI đang ở tài khoản A nhưng ô API đã đổi thành B mà chưa Đồng bộ.
+  if (activeUid && activeUid !== uidValue) {
+    setSyncMsg('☁️ API đã thay đổi — hãy bấm Đồng bộ trước khi lưu', true);
+    return;
+  }
+
+  activeUid = uidValue;
+
   try {
-    const uid = getUserIdFromApiKey(apiKey);
     const payload = {
       toc: getStore('toc') || { subjects: [], lessonsBySubject: {} },
       lessons: {},
@@ -299,38 +419,36 @@ async function syncToCloud() {
       updatedAt: Date.now()
     };
 
+    const prefix = `medstudy:${uidValue}:`;
     for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k.startsWith('lesson:')) {
-        const lData = getStore(k);
+      const storageKey = localStorage.key(i);
+      if (!storageKey || !storageKey.startsWith(prefix)) continue;
+
+      const realKey = storageKey.slice(prefix.length);
+      if (realKey.startsWith('lesson:')) {
+        const lData = getStore(realKey);
         if (lData) {
-          payload.lessons[k] = { ...lData, rawPdfSources: [] };
+          // Không đẩy base64 PDF/ảnh lên Firestore để tránh vượt giới hạn document.
+          payload.lessons[realKey] = {
+            ...lData,
+            rawPdfSources: [],
+            rawSources: []
+          };
         }
-      } else if (k.startsWith('attempts:')) {
-        payload.attempts[k] = getStore(k);
+      } else if (realKey.startsWith('attempts:')) {
+        payload.attempts[realKey] = getStore(realKey);
       }
     }
 
-    await db.collection("users").doc(uid).set(payload, { merge: true });
-    setSyncMsg(`☁️ Đã sao lưu (${uid.slice(0,6)})`);
+    await db.collection('users').doc(uidValue).set(payload, { merge: true });
+    setSyncMsg(`☁️ Đã sao lưu (${uidValue.slice(0,6)})`);
   } catch (err) {
     console.error(err);
-    setSyncMsg("☁️ Lưu đám mây thất bại", true);
+    setSyncMsg('☁️ Lưu đám mây thất bại', true);
   }
 }
 
 /* 2. LOCAL STORAGE VÀ STATE */
-function getStore(key){
-  try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
-  catch(e) { return null; }
-}
-function setStore(key, value){
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-  catch(e) { return false; }
-}
-function delStore(key){
-  try { localStorage.removeItem(key); } catch(e) {}
-}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function toNFC(str){ return String(str || '').normalize('NFC'); }
 
@@ -355,25 +473,38 @@ async function init(){
     const key = keyInput.value.replace(/\s+/g, '');
     keyInput.value = key;
     if (!key) {
-      alert("Vui lòng nhập Google Gemini API Key trước!");
+      alert('Vui lòng nhập Google Gemini API Key trước!');
       return;
     }
+
+    const newUid = getUserIdFromApiKey(key);
+    if (activeUid && activeUid !== newUid) {
+      setSyncMsg('☁️ Đang chuyển sang kho dữ liệu khác...');
+    }
+
     localStorage.setItem('gemini_api_key', key);
     await syncFromCloud(key);
   }
 
-  if(savedKey) {
+  if (savedKey) {
+    const savedUid = getUserIdFromApiKey(savedKey);
+    activeUid = savedUid;
+
+    // Giữ dữ liệu localStorage của phiên bản cũ cho đúng API đã lưu gần nhất.
+    migrateLegacyLocalCacheToAccount(savedUid);
+
     keyInput.value = savedKey;
     await syncFromCloud(savedKey);
   } else {
-    const savedToc = getStore('toc');
-    if(savedToc) toc = savedToc;
+    resetUiForAccountSwitch();
     renderSidebar();
     renderMain();
   }
 
-  keyInput.addEventListener('change', triggerSync);
-  keyInput.addEventListener('paste', () => setTimeout(triggerSync, 40));
+  // Không tự chuyển tài khoản chỉ vì focus/blur; nút Đồng bộ là thao tác rõ ràng nhất.
+  keyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') triggerSync();
+  });
   if(syncBtn) syncBtn.addEventListener('click', triggerSync);
 }
 init();
