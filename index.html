@@ -11,6 +11,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
+<!-- Firebase SDK Compat -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
 <style>
   :root{
     --ink:#17201C;
@@ -58,6 +62,7 @@
   .api-box label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px; font-weight:600;}
   .api-box input{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12px; font-family:var(--font-main);}
   .api-box a{display:block; font-size:11px; color:var(--accent); margin-top:4px; text-decoration:none;}
+  .sync-indicator{font-size:11px; color:var(--muted); margin-top:6px; display:flex; align-items:center; gap:4px;}
   
   .subject-block{border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:4px;}
   .subject-head{
@@ -264,7 +269,7 @@
       <label>Google Gemini API Key:</label>
       <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
       <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
-      <div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.35;">Key được lưu bảo mật trong trình duyệt của bạn.</div>
+      <div class="sync-indicator" id="syncStatus">☁️ Dữ liệu cục bộ</div>
     </div>
 
     <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
@@ -281,6 +286,99 @@
 </div>
 
 <script>
+/* 0. CẤU HÌNH FIREBASE CLOUD SYNC */
+const firebaseConfig = {
+  apiKey: "AIzaSyA2m2LU633oo7MI8aqsxLw-R9Uhtby82P8",
+  authDomain: "medstudy-ai-178bb.firebaseapp.com",
+  projectId: "medstudy-ai-178bb",
+  storageBucket: "medstudy-ai-178bb.firebasestorage.app",
+  messagingSenderId: "483431047311",
+  appId: "1:483431047311:web:fff6a9fc454c028762d0fa",
+  measurementId: "G-RBLZXMX93Y"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Băm SHA-256 API Key làm ID người dùng để đồng bộ dữ liệu
+async function getUserIdFromApiKey(key) {
+  if (!key) return null;
+  const enc = new TextEncoder().encode(key.trim());
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+}
+
+function updateSyncUI(text, isError = false) {
+  const el = document.getElementById('syncStatus');
+  if(el) {
+    el.textContent = text;
+    el.style.color = isError ? 'var(--wrong)' : 'var(--muted)';
+  }
+}
+
+async function syncFromCloud(apiKey) {
+  if (!apiKey) return;
+  updateSyncUI("☁️ Đang đồng bộ từ đám mây...");
+  const uid = await getUserIdFromApiKey(apiKey);
+  try {
+    const doc = await db.collection("users").doc(uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (data.toc) setStore('toc', data.toc);
+      if (data.lessons) {
+        for (const [k, v] of Object.entries(data.lessons)) setStore(k, v);
+      }
+      if (data.attempts) {
+        for (const [k, v] of Object.entries(data.attempts)) setStore(k, v);
+      }
+      toc = data.toc || { subjects: [], lessonsBySubject: {} };
+      renderSidebar();
+      renderMain();
+      updateSyncUI("☁️ Đã đồng bộ qua API Key");
+    } else {
+      updateSyncUI("☁️ Khởi tạo tài nguyên mới");
+      await syncToCloud();
+    }
+  } catch (err) {
+    console.error("Lỗi đồng bộ Cloud:", err);
+    updateSyncUI("☁️ Lỗi đồng bộ đám mây", true);
+  }
+}
+
+async function syncToCloud() {
+  const apiKey = (document.getElementById('apiKeyInput')?.value || '').trim();
+  if (!apiKey) return;
+  const uid = await getUserIdFromApiKey(apiKey);
+
+  const payload = {
+    toc: getStore('toc') || { subjects: [], lessonsBySubject: {} },
+    lessons: {},
+    attempts: {},
+    updatedAt: Date.now()
+  };
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith('lesson:')) {
+      const lData = getStore(k);
+      if (lData) {
+        // Loại bỏ base64 PDF để không vượt giới hạn lưu trữ Firestore
+        payload.lessons[k] = { ...lData, rawPdfSources: [] };
+      }
+    } else if (k.startsWith('attempts:')) {
+      payload.attempts[k] = getStore(k);
+    }
+  }
+
+  try {
+    await db.collection("users").doc(uid).set(payload, { merge: true });
+    updateSyncUI("☁️ Đã sao lưu lên đám mây");
+  } catch (err) {
+    console.error("Lỗi lưu lên Cloud:", err);
+    updateSyncUI("☁️ Lưu đám mây thất bại", true);
+  }
+}
+
 /* 1. STORAGE & TIỆN ÍCH CHUẨN HÓA UNICODE */
 function getStore(key){
   try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
@@ -294,7 +392,6 @@ function delStore(key){
   try { localStorage.removeItem(key); } catch(e) {}
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-// Ép về Unicode NFC để triệt tiêu lỗi tách rời dấu thanh
 function toNFC(str){ return String(str || '').normalize('NFC'); }
 
 /* 2. APP STATE */
@@ -310,17 +407,25 @@ let uploadedFilesQueue = [];
 let currentMmInstance = null;
 let currentMmRoot = null;
 
-function init(){
+async function init(){
   const savedKey = localStorage.getItem('gemini_api_key');
-  if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
-  document.getElementById('apiKeyInput').addEventListener('change', (e) => {
-    localStorage.setItem('gemini_api_key', e.target.value.trim());
-  });
+  if(savedKey) {
+    document.getElementById('apiKeyInput').value = savedKey;
+    await syncFromCloud(savedKey);
+  } else {
+    const savedToc = getStore('toc');
+    if(savedToc) toc = savedToc;
+    renderSidebar();
+    renderMain();
+  }
 
-  const savedToc = getStore('toc');
-  if(savedToc) toc = savedToc;
-  renderSidebar();
-  renderMain();
+  document.getElementById('apiKeyInput').addEventListener('change', async (e) => {
+    const key = e.target.value.trim();
+    localStorage.setItem('gemini_api_key', key);
+    if(key) {
+      await syncFromCloud(key);
+    }
+  });
 }
 init();
 
@@ -362,6 +467,7 @@ function renderSidebar(){
       if(newName && newName.trim() && newName.trim() !== subj.name){
         subj.name = toNFC(newName.trim());
         setStore('toc', toc);
+        syncToCloud();
         renderSidebar();
         renderMain();
       }
@@ -375,6 +481,7 @@ function renderSidebar(){
       delete toc.lessonsBySubject[subj.id];
       toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
       setStore('toc', toc);
+      syncToCloud();
       if(currentSubjectId === subj.id){ currentSubjectId=null; currentLessonId=null; currentLesson=null; }
       renderSidebar(); renderMain();
     });
@@ -407,6 +514,7 @@ function renderSidebar(){
               if(currentLessonId === lesson.id){ currentLesson = savedLesson; }
             }
             setStore('toc', toc);
+            syncToCloud();
             renderSidebar();
             renderMain();
           }
@@ -418,6 +526,7 @@ function renderSidebar(){
           delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id);
           toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
           setStore('toc', toc);
+          syncToCloud();
           if(currentLessonId === lesson.id){ currentLessonId=null; currentLesson=null; }
           renderSidebar(); renderMain();
         });
@@ -456,6 +565,7 @@ function addLesson(subjectId, inputEl){
   if(!toc.lessonsBySubject[subjectId]) toc.lessonsBySubject[subjectId] = [];
   toc.lessonsBySubject[subjectId].push({ id, name, createdAt: Date.now() });
   setStore('toc', toc);
+  syncToCloud();
   inputEl.value = '';
   currentSubjectId = subjectId;
   currentLessonId = id;
@@ -476,6 +586,7 @@ function addSubjectHandler(){
   toc.lessonsBySubject[id] = [];
   openSubjects.add(id);
   setStore('toc', toc);
+  syncToCloud();
   inp.value = '';
   renderSidebar();
 }
@@ -733,7 +844,7 @@ YÊU CẦU:
   }
 
   try{
-    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const GEMINI_MODEL = 'gemini-1.5-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
     
     const response = await fetch(endpoint, {
@@ -783,6 +894,7 @@ YÊU CẦU:
     };
     setStore('lesson:'+currentLessonId, lessonObj);
     currentLesson = lessonObj;
+    await syncToCloud();
     renderMain();
   }catch(err){
     console.error(err);
@@ -853,8 +965,8 @@ YÊU CẦU:
   }
 
   try{
-    const GEMINI_MODEL = 'gemini-3.6-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    const GEMINI_MODEL = 'gemini-1.5-flash';
+    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){GEMINI_MODEL}:generateContent`;
     
     const response = await fetch(endpoint, {
       method: "POST",
@@ -894,6 +1006,7 @@ YÊU CẦU:
       explanation: toNFC(q.explanation)
     }));
     setStore('lesson:'+currentLessonId, currentLesson);
+    await syncToCloud();
     
     quiz = { index:0, answers:[], started:false, done:false };
     renderMain();
@@ -1289,7 +1402,7 @@ function renderQuiz(container){
   container.appendChild(box);
 }
 
-function saveAttempt(questions){
+async function saveAttempt(questions){
   const answers = questions.map((q, idx) => ({
     qid: q.id, question: q.question, options: q.options, explanation: q.explanation || '', chosenIndex: quiz.answers[idx],
     correctIndex: q.correctIndex, correct: quiz.answers[idx] === q.correctIndex
@@ -1299,6 +1412,7 @@ function saveAttempt(questions){
   const prev = getStore('attempts:'+currentLessonId) || [];
   prev.unshift(attempt);
   setStore('attempts:'+currentLessonId, prev);
+  await syncToCloud();
 }
 
 function renderQuizScore(container, questions){
