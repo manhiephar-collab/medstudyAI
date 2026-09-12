@@ -197,6 +197,10 @@
   .mm-ai-ask text{fill:var(--accent-dark);font-size:8px;font-weight:800;font-family:var(--font-main);text-anchor:middle;dominant-baseline:central;pointer-events:none}
   @media(max-width:520px){.ai-knowledge-panel{padding:16px;border-radius:18px;max-height:88vh}.ai-actions .btn{width:auto!important}.ai-quick-prompts button{font-size:11px}}
 
+
+  .math-display-safe{display:block;overflow-x:auto;overflow-y:hidden;margin:10px 0;padding:4px 2px;text-align:center}
+  .math-inline-safe{display:inline}
+  .math-fallback-readable{font-family:inherit;color:var(--text);font-weight:600;background:rgba(14,165,164,.06);border-radius:6px;padding:1px 4px}
 </style>
 </head>
 <body>
@@ -1559,41 +1563,72 @@ function openAiKnowledge(topic){
 function normalizeAiLatex(raw){
   let text = String(raw || '').replace(/\r\n/g, '\n');
 
-  // Trong TeX, dấu % bắt đầu comment. Nếu Gemini trả "1%" bên trong công thức,
-  // KaTeX sẽ ẩn phần còn lại của dòng (ví dụ E(1%...) chỉ còn E(1).
-  // Vì vậy phải escape % trong MỌI vùng công thức, kể cả vùng đã có $...$.
+  // Chuẩn hóa một số ký hiệu Gemini hay xuất không thống nhất.
+  text = text.replace(/E_\{1\\text\{cm\}\}\^\{1%\}/g, 'E_{1\\text{cm}}^{1\\%}');
+  text = text.replace(/E_\{1cm\}\^\{1%\}/g, 'E_{1\\mathrm{cm}}^{1\\%}');
+
   const escapePercentInMath = (s) => String(s || '').replace(/(^|[^\\])%/g, '$1\\%');
 
-  // Sửa phần trăm ngay trong các delimiter đã có sẵn trước khi xử lý Markdown.
+  // 1) Bảo vệ và sửa các công thức đã có delimiter.
   text = text.replace(/\$\$([\s\S]*?)\$\$/g, (m, inner) => '$$' + escapePercentInMath(inner) + '$$');
   text = text.replace(/\$([^\n$]+?)\$/g, (m, inner) => '$' + escapePercentInMath(inner) + '$');
   text = text.replace(/\\\[([\s\S]*?)\\\]/g, (m, inner) => '\\[' + escapePercentInMath(inner) + '\\]');
   text = text.replace(/\\\(([^\n]*?)\\\)/g, (m, inner) => '\\(' + escapePercentInMath(inner) + '\\)');
 
-  // Gemini đôi khi trả TeX đúng cú pháp nhưng quên $...$/$$...$$.
-  const lines = text.split('\n').map(line => {
+  // 2) Bọc công thức đứng riêng một dòng. Chỉ cần có dấu = và dấu hiệu TeX.
+  //    Không dùng phép kiểm tra "mostlyMath" quá chặt vì \text{cm}, tiếng Việt trong \text{}...
+  text = text.split('\n').map(line => {
     const t = line.trim();
     if(!t || t.includes('$') || t.startsWith('```')) return line;
-
-    // Dòng gần như chỉ là công thức TeX, ví dụ:
-    // A = \varepsilon \cdot L \cdot C = E_{1cm}^{1%} \cdot L \cdot C
-    const hasTex = /\\(?:frac|varepsilon|epsilon|cdot|times|sqrt|alpha|beta|gamma|lambda|mu|sigma|Delta|mathrm|text|overline|bar|hat|pm|leq|geq)\b|_[{]|\^[{]/.test(t);
+    const hasTex = /\\[A-Za-z]+|_\{|\^\{/.test(t);
     const looksEquation = /[=≈<>≤≥]/.test(t);
-    const mostlyMath = /^[A-Za-z0-9_{}^\\().,%+\-*/=<>≤≥≈\s]+$/.test(t);
-    if(hasTex && looksEquation && mostlyMath){
+    if(hasTex && looksEquation && !/^#{1,6}\s/.test(t) && !/^[-*+]\s/.test(t)){
       return line.replace(t, '$$' + escapePercentInMath(t) + '$$');
     }
     return line;
-  });
-  text = lines.join('\n');
+  }).join('\n');
 
-  // Bọc các token TeX ngắn còn trần trong câu văn, thường gặp E_{1cm}^{1%}.
-  // Không đụng vào vùng đã nằm trong dấu $.
-  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^\n$]+\$|\\\[[\s\S]*?\\\]|\\\([^\n]*?\\\))/g);
-  for(let i=0;i<parts.length;i+=2){
-    parts[i] = parts[i].replace(/\b([A-Za-z](?:_[{][^}\n]+[}])?(?:\^[{][^}\n]+[}])+)\b/g, (m) => '$' + escapePercentInMath(m) + '$');
+  // 3) Bọc các biểu thức E_{...}^{...} bị Gemini để trần trong tiêu đề/câu văn.
+  //    Hỗ trợ cả E_{1\\text{cm}}^{1%}, E_{1cm}^{1%}, E_{1\\mathrm{cm}}^{1%}.
+  const protectedParts = text.split(/(\$\$[\s\S]*?\$\$|\$[^\n$]+\$|\\\[[\s\S]*?\\\]|\\\([^\n]*?\\\))/g);
+  for(let i=0; i<protectedParts.length; i+=2){
+    let part = protectedParts[i];
+
+    part = part.replace(/E_\{((?:\\(?:text|mathrm)\{[^}]*\}|[^}])+)\}\^\{([^}]*)\}/g,
+      (m, sub, sup) => '$E_{' + sub + '}^{' + escapePercentInMath(sup) + '}$');
+
+    // 4) Các token TeX ngắn khác còn trần: \varepsilon, \epsilon, \cdot... trong đoạn văn.
+    //    Chỉ bọc token đơn để tránh nuốt cả câu.
+    part = part.replace(/(?<![$\\])\\(varepsilon|epsilon|alpha|beta|gamma|lambda|mu|sigma|Delta)(?![A-Za-z])/g,
+      (m) => '$' + m + '$');
+
+    protectedParts[i] = part;
   }
-  return parts.join('');
+  return protectedParts.join('');
+}
+
+function latexToReadable(tex){
+  let s = String(tex || '');
+  // Các ký hiệu thường gặp trong Y Dược / UV-Vis.
+  s = s.replace(/E_\{1\\(?:text|mathrm)\{cm\}\}\^\{1\\?%\}/g, 'E(1%, 1 cm)');
+  s = s.replace(/E_\{1cm\}\^\{1\\?%\}/g, 'E(1%, 1 cm)');
+  s = s.replace(/\\varepsilon|\\epsilon/g, 'ε')
+       .replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β')
+       .replace(/\\gamma/g, 'γ').replace(/\\lambda/g, 'λ')
+       .replace(/\\mu/g, 'μ').replace(/\\sigma/g, 'σ')
+       .replace(/\\Delta/g, 'Δ')
+       .replace(/\\cdot/g, '·').replace(/\\times/g, '×')
+       .replace(/\\pm/g, '±').replace(/\\leq/g, '≤').replace(/\\geq/g, '≥')
+       .replace(/\\%/g, '%');
+  // Phân số đơn giản: \frac{a}{b} -> (a)/(b)
+  for(let i=0;i<4;i++){
+    s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)');
+  }
+  s = s.replace(/\\(?:text|mathrm|operatorname)\{([^{}]*)\}/g, '$1');
+  // Chỉ số trên/dưới còn sót lại được đổi sang dạng dễ đọc thay vì lộ mã LaTeX.
+  s = s.replace(/_\{([^{}]+)\}/g, '₍$1₎').replace(/\^\{([^{}]+)\}/g, '^($1)');
+  s = s.replace(/\\left|\\right/g, '').replace(/[{}]/g, '').replace(/\\([A-Za-z]+)/g, '$1');
+  return s.trim();
 }
 
 function renderAiKnowledgeAnswer(target, rawText){
@@ -1601,37 +1636,89 @@ function renderAiKnowledgeAnswer(target, rawText){
   if(!text){ target.textContent = ''; return; }
 
   try{
-    // Markdown: tiêu đề, danh sách, in đậm, đường phân cách...
+    // Tách công thức RA KHỎI Markdown trước khi parse. Điều này ngăn marked làm mất
+    // backslash, %, dấu ngoặc... trong LaTeX.
+    const mathItems = [];
+    const tokenized = text.replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\$([^\n$]+?)\$|\\\(([^\n]*?)\\\)/g,
+      (m, dd, br, inlineDollar, inlineParen) => {
+        const display = dd !== undefined || br !== undefined;
+        const tex = dd ?? br ?? inlineDollar ?? inlineParen ?? '';
+        const id = mathItems.length;
+        mathItems.push({tex, display});
+        return `@@MEDSTUDY_MATH_${id}@@`;
+      }
+    );
+
     let html;
     if(window.marked && typeof window.marked.parse === 'function'){
-      html = window.marked.parse(text, { gfm:true, breaks:true });
+      html = window.marked.parse(tokenized, { gfm:true, breaks:true });
     }else{
-      const esc = text.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+      const esc = tokenized.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       html = esc.replace(/\n/g, '<br>');
     }
 
-    // Không cho nội dung AI chèn script / HTML nguy hiểm.
     if(window.DOMPurify){
       html = window.DOMPurify.sanitize(html, {USE_PROFILES:{html:true}});
     }
     target.innerHTML = html;
 
-    // Công thức: $...$, $$...$$, \\(...\\), \\[...\\]
-    if(typeof window.renderMathInElement === 'function'){
-      window.renderMathInElement(target, {
-        delimiters:[
-          {left:'$$', right:'$$', display:true},
-          {left:'\\[', right:'\\]', display:true},
-          {left:'$', right:'$', display:false},
-          {left:'\\(', right:'\\)', display:false}
-        ],
-        throwOnError:false,
-        strict:false
-      });
-    }
+    // Khôi phục từng token và render trực tiếp bằng KaTeX.
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    const tokenRe = /@@MEDSTUDY_MATH_(\d+)@@/g;
+
+    nodes.forEach(node => {
+      const val = node.nodeValue || '';
+      if(!val.includes('@@MEDSTUDY_MATH_')) return;
+      const frag = document.createDocumentFragment();
+      let last = 0, match;
+      tokenRe.lastIndex = 0;
+      while((match = tokenRe.exec(val))){
+        if(match.index > last) frag.appendChild(document.createTextNode(val.slice(last, match.index)));
+        const item = mathItems[Number(match[1])];
+        const span = document.createElement(item?.display ? 'div' : 'span');
+        span.className = item?.display ? 'math-display-safe' : 'math-inline-safe';
+        if(item){
+          try{
+            if(window.katex && typeof window.katex.render === 'function'){
+              window.katex.render(item.tex, span, {
+                displayMode: !!item.display,
+                throwOnError: true,
+                strict: false,
+                trust: false
+              });
+            }else{
+              span.textContent = latexToReadable(item.tex);
+            }
+          }catch(e){
+            // Nếu công thức AI bị malformed, luôn hiển thị bản dễ đọc thay vì mã LaTeX đỏ.
+            span.textContent = latexToReadable(item.tex);
+            span.classList.add('math-fallback-readable');
+          }
+        }
+        frag.appendChild(span);
+        last = tokenRe.lastIndex;
+      }
+      if(last < val.length) frag.appendChild(document.createTextNode(val.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    });
+
+    // Lớp cứu hộ cuối: nếu Gemini để LaTeX trần không delimiter, đổi sang chữ dễ đọc.
+    const rescue = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const rescueNodes = [];
+    while(rescue.nextNode()) rescueNodes.push(rescue.currentNode);
+    rescueNodes.forEach(node => {
+      const parent = node.parentElement;
+      if(!parent || parent.closest('.katex, code, pre')) return;
+      const v = node.nodeValue || '';
+      if(/\\(?:frac|text|mathrm|varepsilon|epsilon|cdot|times)|E_\{|\^\{|_\{/.test(v)){
+        node.nodeValue = latexToReadable(v);
+      }
+    });
   }catch(err){
     console.warn('Không thể render Markdown/LaTeX:', err);
-    target.textContent = text;
+    target.textContent = latexToReadable(text);
   }
 }
 
