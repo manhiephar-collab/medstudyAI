@@ -148,16 +148,11 @@
 
   .status-line{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px;}
 
-  /* MIND MAP D3 CUSTOM TREE */
+  /* MIND MAP */
   .mindmap-wrapper{
     border:1px solid #343B42; border-radius:16px; background:#22262A;
     overflow:hidden; position:relative; box-shadow:0 10px 30px rgba(0,0,0,.22);
     min-height:720px;
-  }
-  .mindmap-wrapper::before{
-    content:""; position:absolute; inset:0; pointer-events:none;
-    background:radial-gradient(circle at 18% 50%, rgba(112,121,148,.08), transparent 34%),
-               radial-gradient(circle at 78% 50%, rgba(67,96,78,.07), transparent 38%);
   }
   .mindmap-toolbar{
     position:absolute; top:14px; right:14px; z-index:20; display:flex; gap:6px; flex-wrap:wrap;
@@ -168,8 +163,8 @@
     background:#343A3F; color:#EEF2F0; border:1px solid rgba(255,255,255,.08); border-radius:7px;
     padding:6px 10px; font-size:12px; cursor:pointer; font-weight:600; font-family:var(--font-stack);
   }
-  .mindmap-toolbar button:hover{background:#465049; transform:translateY(-1px);}
-  #mindmapViewport{width:100%; height:720px; display:block; cursor:grab; touch-action:none; position:relative; z-index:1;}
+  .mindmap-toolbar button:hover{background:#465049;}
+  #mindmapViewport{width:100%; height:720px; display:block; cursor:grab; touch-action:none;}
   #mindmapViewport:active{cursor:grabbing;}
   .mm-link{fill:none; stroke:#8997A4; stroke-width:1.55px; opacity:.8; vector-effect:non-scaling-stroke;}
   .mm-node{cursor:default;}
@@ -183,14 +178,14 @@
   .mm-node.depth-0 .mm-node-label{font-size:14.5px; font-weight:700;}
   .mm-node.depth-1 .mm-node-label{font-size:13.8px; font-weight:600;}
   .mm-toggle{cursor:pointer;}
-  .mm-toggle circle{fill:#46534F; stroke:rgba(255,255,255,.1); stroke-width:1px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.22));}
+  .mm-toggle circle{fill:#46534F; stroke:rgba(255,255,255,.1); stroke-width:1px;}
   .mm-toggle:hover circle{fill:#64766F;}
   .mm-toggle text{fill:#F4F7F5; font-size:12px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none;}
   .mm-hit{fill:transparent; cursor:pointer;}
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;}
   .mindmap-help .hint{font-size:13.5px;color:var(--muted);}
 
-  /* Quiz Top Bar */
+  /* Quiz */
   .quiz-top-bar{
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
     margin-bottom:14px; padding:10px 14px; background:#F8FAF6; border:1px solid var(--line); border-radius:8px;
@@ -228,265 +223,4 @@
   .tag.bad{background:var(--wrong-soft); color:var(--wrong);}
 
   .hist-item{
-    display:flex; justify-content:space-between; align-items:center; padding:12px 14px;
-    border:1px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer; background:#fff;
-  }
-  .hist-item:hover{border-color:var(--accent);}
-  .loader{display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13.5px;}
-  .spinner{
-    width:14px; height:14px; border-radius:50%; border:2px solid var(--line); border-top-color:var(--accent);
-    animation:spin .8s linear infinite;
-  }
-  @keyframes spin{to{transform:rotate(360deg);}}
-
-  @media (max-width:760px){
-    .app{flex-direction:column;}
-    .sidebar{width:100%; height:auto; position:relative; border-right:none; border-bottom:1px solid var(--line);}
-    .main{padding:20px;}
-    #mindmapViewport{height:600px;}
-  }
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="sidebar" id="sidebar">
-    <div class="brand"><span class="mark"></span><h1>MedStudy AI</h1></div>
-
-    <div class="api-box">
-      <label>Google Gemini API Key:</label>
-      <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
-      <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
-    </div>
-
-    <div id="subjectList" style="display:flex; flex-direction:column; gap:2px;"></div>
-    
-    <div class="sidebar-footer">
-      <div class="add-subject">
-        <input type="text" id="newSubjectInput" placeholder="Tên môn học mới…">
-        <button class="btn" id="addSubjectBtn">Thêm</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="main" id="main"></div>
-</div>
-
-<script>
-/* 1. QUẢN LÝ DỮ LIỆU ĐỘC LẬP THEO MÃ API KEY CÁ NHÂN */
-function getApiKey(){
-  return (localStorage.getItem('gemini_api_key') || '').trim();
-}
-
-// Băm mã Key thành định danh an toàn để làm tiền tố lưu trữ
-function getStoragePrefix(){
-  const key = getApiKey();
-  if(!key) return 'public:';
-  let hash = 0;
-  for(let i = 0; i < key.length; i++){
-    hash = ((hash << 5) - hash) + key.charCodeAt(i);
-    hash |= 0;
-  }
-  return 'usr_' + Math.abs(hash).toString(36) + ':';
-}
-
-function getStore(key){
-  try {
-    const val = localStorage.getItem(getStoragePrefix() + key);
-    return val ? JSON.parse(val) : null;
-  } catch(e) { return null; }
-}
-
-function setStore(key, value){
-  try {
-    localStorage.setItem(getStoragePrefix() + key, JSON.stringify(value));
-    return true;
-  } catch(e) { return false; }
-}
-
-function delStore(key){
-  try {
-    localStorage.removeItem(getStoragePrefix() + key);
-  } catch(e) {}
-}
-
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function safeText(str){ return String(str || '').normalize('NFC'); }
-
-/* 2. APP STATE */
-let toc = { subjects: [], lessonsBySubject: {} };
-let openSubjects = new Set();
-let currentSubjectId = null;
-let currentLessonId = null;
-let currentLesson = null;
-let activeTab = 'mindmap';
-let quiz = { index:0, answers:[], started:false, done:false };
-
-let uploadedFilesQueue = [];
-let currentMmInstance = null;
-let currentMmRoot = null;
-
-function loadUserData(){
-  const savedToc = getStore('toc');
-  if(savedToc && Array.isArray(savedToc.subjects)){
-    toc = savedToc;
-  } else {
-    toc = { subjects: [], lessonsBySubject: {} };
-  }
-  currentSubjectId = null;
-  currentLessonId = null;
-  currentLesson = null;
-  openSubjects.clear();
-  renderSidebar();
-  renderMain();
-}
-
-function init(){
-  try{
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
-
-    document.getElementById('apiKeyInput').addEventListener('change', (e) => {
-      const newKey = e.target.value.trim();
-      localStorage.setItem('gemini_api_key', newKey);
-      // Tự động chuyển đổi dữ liệu khi đổi API Key
-      loadUserData();
-    });
-
-    loadUserData();
-  }catch(err){
-    console.warn("Khởi tạo dữ liệu thất bại:", err);
-  }
-}
-
-/* 3. SIDEBAR */
-function renderSidebar(){
-  const list = document.getElementById('subjectList');
-  list.innerHTML = '';
-  if(!toc.subjects || toc.subjects.length === 0){
-    const p = document.createElement('div');
-    p.style.cssText = 'color:var(--muted); font-size:13px; padding:8px 4px;';
-    p.textContent = safeText('Chưa có môn học nào cho tài khoản này. Thêm môn ở bên dưới.');
-    list.appendChild(p);
-    return;
-  }
-  toc.subjects.forEach(subj => {
-    const block = document.createElement('div');
-    block.className = 'subject-block';
-
-    const head = document.createElement('div');
-    head.className = 'subject-head' + (openSubjects.has(subj.id) ? ' open' : '');
-    head.innerHTML = `
-      <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-        <span class="chev">▶</span><span class="name"></span>
-      </span>
-      <div class="action-btns">
-        <span class="action-btn edit-subj" title="Đổi tên môn">✎</span>
-        <span class="action-btn del del-subj" title="Xoá môn">✕</span>
-      </div>`;
-    head.querySelector('.name').textContent = safeText(subj.name);
-
-    head.addEventListener('click', (e) => {
-      if(e.target.closest('.action-btns')) return;
-      if(openSubjects.has(subj.id)) openSubjects.delete(subj.id); else openSubjects.add(subj.id);
-      renderSidebar();
-    });
-
-    head.querySelector('.edit-subj').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const newName = prompt('Nhập tên môn học mới:', subj.name);
-      if(newName && newName.trim() && newName.trim() !== subj.name){
-        subj.name = safeText(newName.trim());
-        setStore('toc', toc);
-        renderSidebar();
-        renderMain();
-      }
-    });
-
-    head.querySelector('.del-subj').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if(!confirm(`Xoá môn "${subj.name}" và toàn bộ bài học bên trong?`)) return;
-      const lessons = toc.lessonsBySubject[subj.id] || [];
-      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); }
-      delete toc.lessonsBySubject[subj.id];
-      toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
-      setStore('toc', toc);
-      if(currentSubjectId === subj.id){ currentSubjectId=null; currentLessonId=null; currentLesson=null; }
-      renderSidebar(); renderMain();
-    });
-    block.appendChild(head);
-
-    if(openSubjects.has(subj.id)){
-      const lessonList = document.createElement('div');
-      lessonList.className = 'lesson-list';
-      const lessons = toc.lessonsBySubject[subj.id] || [];
-      lessons.forEach(lesson => {
-        const item = document.createElement('div');
-        item.className = 'lesson-item' + (currentLessonId === lesson.id ? ' active' : '');
-        item.innerHTML = `
-          <span class="lname" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-          <div class="action-btns">
-            <span class="action-btn edit-lesson" title="Đổi tên bài">✎</span>
-            <span class="action-btn del del-lesson" title="Xoá bài">✕</span>
-          </div>`;
-        item.querySelector('.lname').textContent = safeText(lesson.name);
-
-        item.querySelector('.edit-lesson').addEventListener('click', (e) => {
-          e.stopPropagation();
-          const newName = prompt('Nhập tên bài học mới:', lesson.name);
-          if(newName && newName.trim() && newName.trim() !== lesson.name){
-            lesson.name = safeText(newName.trim());
-            const savedLesson = getStore('lesson:' + lesson.id);
-            if(savedLesson){
-              savedLesson.name = lesson.name;
-              setStore('lesson:' + lesson.id, savedLesson);
-              if(currentLessonId === lesson.id){ currentLesson = savedLesson; }
-            }
-            setStore('toc', toc);
-            renderSidebar();
-            renderMain();
-          }
-        });
-
-        item.querySelector('.del-lesson').addEventListener('click', (e) => {
-          e.stopPropagation();
-          if(!confirm(`Xoá bài "${lesson.name}"?`)) return;
-          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id);
-          toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
-          setStore('toc', toc);
-          if(currentLessonId === lesson.id){ currentLessonId=null; currentLesson=null; }
-          renderSidebar(); renderMain();
-        });
-
-        item.addEventListener('click', (e) => {
-          if(e.target.closest('.action-btns')) return;
-          currentSubjectId = subj.id;
-          currentLessonId = lesson.id;
-          activeTab = 'mindmap';
-          quiz = { index:0, answers:[], started:false, done:false };
-          uploadedFilesQueue = [];
-          currentLesson = getStore('lesson:'+lesson.id);
-          renderSidebar(); renderMain();
-        });
-
-        lessonList.appendChild(item);
-      });
-
-      const addRow = document.createElement('div');
-      addRow.className = 'add-row';
-      addRow.innerHTML = `<input type="text" placeholder="Tên bài học…"><button class="btn small">Thêm</button>`;
-      const inp = addRow.querySelector('input');
-      addRow.querySelector('button').addEventListener('click', () => addLesson(subj.id, inp));
-      inp.addEventListener('keydown', (e) => { if(e.key === 'Enter') addLesson(subj.id, inp); });
-      lessonList.appendChild(addRow);
-      block.appendChild(lessonList);
-    }
-    list.appendChild(block);
-  });
-}
-
-function addLesson(subjectId, inputEl){
-  const name = safeText(inputEl.value.trim());
-  if(!name) return;
-  const id = uid();
-  if(!toc.lessonsBySubject[subjectId]) toc.lessonsBySubject[subjectId] = [];
-  toc.lessonsBySubject[subjectId].push({ id, name, createdAt: Date.
+    display:flex; justify-content:space-between; align-items
