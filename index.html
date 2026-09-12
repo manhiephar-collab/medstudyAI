@@ -824,12 +824,17 @@ YÊU CẦU:
   }
 
   try{
-    const GEMINI_MODEL = 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    // Use a current Gemini model for the initial PDF/image generation path.
+    // The old path still used gemini-2.5-flash, which can return 404 for newer projects.
+    const GEMINI_MODEL = 'gemini-3.6-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
     
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
       body: JSON.stringify({
         contents: [{ parts: parts }],
         generationConfig: {
@@ -840,7 +845,14 @@ YÊU CẦU:
     });
 
     if (!response.ok) {
-      throw new Error(`Máy chủ báo lỗi (${response.status}): Vui lòng kiểm tra lại Quota hoặc API Key.`);
+      let detail = '';
+      try {
+        const errJson = await response.json();
+        detail = errJson?.error?.message || '';
+      } catch (_) {
+        try { detail = await response.text(); } catch (_) {}
+      }
+      throw new Error(`Gemini HTTP ${response.status}${detail ? ': ' + detail : ''}`);
     }
 
     const data = await response.json();
