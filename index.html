@@ -173,6 +173,24 @@
   .ai-answer .katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0;margin:10px 0}
   .ai-answer .katex{font-size:1.06em}
   .ai-note{font-size:11px;color:var(--muted);margin-top:8px}
+  .ai-saved-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 4px}
+  .ai-history-toggle,.ai-history-clear{border:1px solid rgba(14,165,164,.18);background:rgba(255,255,255,.72);color:var(--accent-dark);border-radius:10px;padding:6px 9px;font-size:11.5px;font-weight:700;cursor:pointer}
+  .ai-history-toggle:hover{background:var(--accent-soft)}
+  .ai-history-clear{color:var(--wrong);border-color:rgba(217,93,104,.18)}
+  .ai-history-clear:hover{background:var(--wrong-soft)}
+  .ai-history{display:none;margin:8px 0 12px;padding:8px;border:1px solid var(--line);border-radius:12px;background:rgba(247,252,252,.76);max-height:210px;overflow:auto}
+  .ai-history.show{display:block}
+  .ai-history-empty{font-size:11.5px;color:var(--muted);padding:5px 6px}
+  .ai-history-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border-radius:10px}
+  .ai-history-item:hover{background:rgba(221,247,245,.52)}
+  .ai-history-meta{min-width:0}
+  .ai-history-question{font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ai-history-time{font-size:10px;color:var(--muted);margin-top:2px}
+  .ai-history-actions{display:flex;gap:5px}
+  .ai-history-actions button{border:0;border-radius:8px;padding:5px 7px;font-size:10.5px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.9);color:var(--accent-dark)}
+  .ai-history-actions button:hover{background:var(--accent-soft)}
+  .ai-history-actions .delete{color:var(--wrong)}
+  .ai-history-actions .delete:hover{background:var(--wrong-soft)}
   .mm-ai-ask{cursor:pointer}
   .mm-ai-ask circle{fill:#fff;stroke:rgba(14,165,164,.35);stroke-width:1.2px;filter:drop-shadow(0 3px 6px rgba(21,95,104,.16))}
   .mm-ai-ask:hover circle{fill:#E1F7F5;stroke:var(--accent)}
@@ -700,7 +718,7 @@ function renderSidebar(){
       e.stopPropagation();
       if(!confirm(`Xoá môn "${subj.name}" và toàn bộ bài học bên trong?`)) return;
       const lessons = toc.lessonsBySubject[subj.id] || [];
-      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); deleteSavedLessonSources(l.id); }
+      for(const l of lessons){ delStore('lesson:'+l.id); delStore('attempts:'+l.id); delStore('aiKnowledge:'+l.id); deleteSavedLessonSources(l.id); }
       delete toc.lessonsBySubject[subj.id];
       toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
       setStore('toc', toc);
@@ -746,7 +764,7 @@ function renderSidebar(){
         item.querySelector('.del-lesson').addEventListener('click', (e) => {
           e.stopPropagation();
           if(!confirm(`Xoá bài "${lesson.name}"?`)) return;
-          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id); deleteSavedLessonSources(lesson.id);
+          delStore('lesson:'+lesson.id); delStore('attempts:'+lesson.id); delStore('aiKnowledge:'+lesson.id); deleteSavedLessonSources(lesson.id);
           toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
           setStore('toc', toc);
           syncToCloud();
@@ -1390,6 +1408,11 @@ function ensureAiKnowledgeModal(){
         <button type="button" data-prompt="Nêu các điểm trọng tâm dễ gặp trong kiểm tra, thi cử liên quan đến nội dung này.">Điểm cần nhớ khi thi</button>
         <button type="button" data-prompt="Nêu những điểm dễ nhầm lẫn và cách phân biệt liên quan đến nội dung này.">Điểm dễ nhầm</button>
       </div>
+      <div class="ai-saved-bar">
+        <button class="ai-history-toggle" id="aiKnowledgeHistoryToggle" type="button">🕘 Xem lại <span id="aiKnowledgeHistoryCount">0</span> lần hỏi</button>
+        <button class="ai-history-clear" id="aiKnowledgeHistoryClear" type="button">Xóa lịch sử</button>
+      </div>
+      <div class="ai-history" id="aiKnowledgeHistory"></div>
       <textarea class="ai-question" id="aiKnowledgeQuestion" placeholder="Nhập điều bạn muốn hỏi thêm về nội dung này..."></textarea>
       <div class="ai-actions">
         <button class="btn ghost small" id="aiKnowledgeClear" type="button">Xóa</button>
@@ -1419,8 +1442,97 @@ function ensureAiKnowledgeModal(){
     ans.classList.remove('show');
   });
 
+  modal.querySelector('#aiKnowledgeHistoryToggle').addEventListener('click', () => {
+    const box = modal.querySelector('#aiKnowledgeHistory');
+    box.classList.toggle('show');
+  });
+
+  modal.querySelector('#aiKnowledgeHistoryClear').addEventListener('click', () => {
+    const topic = String(modal.dataset.topic || '').trim();
+    if(!topic) return;
+    if(!confirm('Xóa toàn bộ phần Hỏi AI đã lưu cho nội dung này?')) return;
+    const all = getAiKnowledgeStore().filter(item => item.topic !== topic);
+    setAiKnowledgeStore(all);
+    renderAiKnowledgeHistory(modal, topic);
+    const ans = modal.querySelector('#aiKnowledgeAnswer');
+    ans.textContent = '';
+    ans.classList.remove('show');
+  });
+
   modal.querySelector('#aiKnowledgeAsk').addEventListener('click', askAiKnowledge);
   return modal;
+}
+
+function aiKnowledgeStorageKey(){
+  return `aiKnowledge:${currentLessonId || 'none'}`;
+}
+
+function getAiKnowledgeStore(){
+  const data = getStore(aiKnowledgeStorageKey());
+  return Array.isArray(data) ? data : [];
+}
+
+function setAiKnowledgeStore(items){
+  const safe = Array.isArray(items) ? items.slice(-40) : [];
+  setStore(aiKnowledgeStorageKey(), safe);
+}
+
+function saveAiKnowledgeEntry(topic, question, answer){
+  const items = getAiKnowledgeStore();
+  items.push({
+    id: uid(),
+    topic: String(topic || '').trim(),
+    question: String(question || '').trim(),
+    answer: String(answer || '').trim().slice(0, 18000),
+    createdAt: Date.now()
+  });
+  setAiKnowledgeStore(items);
+}
+
+function renderAiKnowledgeHistory(modal, topic){
+  const list = getAiKnowledgeStore().filter(item => item.topic === topic).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  modal.querySelector('#aiKnowledgeHistoryCount').textContent = String(list.length);
+  const box = modal.querySelector('#aiKnowledgeHistory');
+  box.innerHTML = '';
+  if(list.length === 0){
+    box.innerHTML = '<div class="ai-history-empty">Chưa có nội dung AI nào được lưu cho mục này.</div>';
+    return list;
+  }
+  list.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'ai-history-item';
+    const meta = document.createElement('div');
+    meta.className = 'ai-history-meta';
+    const q = document.createElement('div');
+    q.className = 'ai-history-question';
+    q.textContent = toNFC(item.question || 'Câu hỏi AI');
+    const time = document.createElement('div');
+    time.className = 'ai-history-time';
+    time.textContent = new Date(item.createdAt || Date.now()).toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',hour12:false});
+    meta.append(q,time);
+    const actions = document.createElement('div');
+    actions.className = 'ai-history-actions';
+    const view = document.createElement('button');
+    view.type = 'button'; view.textContent = 'Xem';
+    view.addEventListener('click', () => {
+      modal.querySelector('#aiKnowledgeQuestion').value = item.question || '';
+      const ans = modal.querySelector('#aiKnowledgeAnswer');
+      ans.classList.add('show');
+      renderAiKnowledgeAnswer(ans, item.answer || '');
+      box.classList.remove('show');
+    });
+    const del = document.createElement('button');
+    del.type = 'button'; del.textContent = '✕'; del.className = 'delete';
+    del.title = 'Xóa lần hỏi này';
+    del.addEventListener('click', () => {
+      setAiKnowledgeStore(getAiKnowledgeStore().filter(x => x.id !== item.id));
+      renderAiKnowledgeHistory(modal, topic);
+    });
+    actions.append(view,del);
+    row.append(meta,actions);
+    box.appendChild(row);
+  });
+  return list;
 }
 
 function openAiKnowledge(topic){
@@ -1432,12 +1544,52 @@ function openAiKnowledge(topic){
   const ans = modal.querySelector('#aiKnowledgeAnswer');
   ans.textContent = '';
   ans.classList.remove('show');
+  const historyBox = modal.querySelector('#aiKnowledgeHistory');
+  historyBox.classList.remove('show');
+  const saved = renderAiKnowledgeHistory(modal, modal.dataset.topic);
+  if(saved.length > 0){
+    q.value = saved[0].question || q.value;
+    ans.classList.add('show');
+    renderAiKnowledgeAnswer(ans, saved[0].answer || '');
+  }
   modal.classList.add('open');
   setTimeout(() => q.focus(), 30);
 }
 
+function normalizeAiLatex(raw){
+  let text = String(raw || '').replace(/\r\n/g, '\n');
+
+  // Gemini đôi khi trả TeX đúng cú pháp nhưng quên $...$/$$...$$.
+  // Chuẩn hoá phần trăm trong công thức: 1% -> 1\% (nếu chưa escape).
+  const escapePercentInMath = (s) => s.replace(/(^|[^\\])%/g, '$1\\%');
+
+  const lines = text.split('\n').map(line => {
+    const t = line.trim();
+    if(!t || t.includes('$') || t.startsWith('```')) return line;
+
+    // Dòng gần như chỉ là công thức TeX, ví dụ:
+    // A = \varepsilon \cdot L \cdot C = E_{1cm}^{1%} \cdot L \cdot C
+    const hasTex = /\\(?:frac|varepsilon|epsilon|cdot|times|sqrt|alpha|beta|gamma|lambda|mu|sigma|Delta|mathrm|text|overline|bar|hat|pm|leq|geq)\b|_[{]|\^[{]/.test(t);
+    const looksEquation = /[=≈<>≤≥]/.test(t);
+    const mostlyMath = /^[A-Za-z0-9_{}^\\().,%+\-*/=<>≤≥≈\s]+$/.test(t);
+    if(hasTex && looksEquation && mostlyMath){
+      return line.replace(t, '$$' + escapePercentInMath(t) + '$$');
+    }
+    return line;
+  });
+  text = lines.join('\n');
+
+  // Bọc các token TeX ngắn còn trần trong câu văn, thường gặp E_{1cm}^{1%}.
+  // Không đụng vào vùng đã nằm trong dấu $.
+  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^\n$]+\$)/g);
+  for(let i=0;i<parts.length;i+=2){
+    parts[i] = parts[i].replace(/\b([A-Za-z](?:_[{][^}\n]+[}])?(?:\^[{][^}\n]+[}])+)\b/g, (m) => '$' + escapePercentInMath(m) + '$');
+  }
+  return parts.join('');
+}
+
 function renderAiKnowledgeAnswer(target, rawText){
-  const text = toNFC(String(rawText || '')).trim();
+  const text = normalizeAiLatex(toNFC(String(rawText || '')).trim());
   if(!text){ target.textContent = ''; return; }
 
   try{
@@ -1508,7 +1660,8 @@ YÊU CẦU:
 - Nếu cần dùng kiến thức ngoài tài liệu để làm rõ, mở phần đó bằng từ “Bổ sung:”.
 - Không bịa số liệu, liều dùng hoặc khuyến cáo lâm sàng. Nếu không chắc, nói rõ.
 - Trả lời súc tích nhưng đủ ý, dùng Markdown sạch: tiêu đề ##/###, gạch đầu dòng và **in đậm** khi phù hợp.
-- Mọi công thức toán/hóa phải viết bằng LaTeX chuẩn: dùng $...$ cho công thức trong dòng hoặc $$...$$ cho công thức riêng dòng. Ví dụ: $A = \varepsilon \cdot L \cdot C$.
+- Mọi công thức toán/hóa BẮT BUỘC phải nằm trong dấu phân cách LaTeX: dùng $...$ cho công thức trong dòng hoặc $$...$$ cho công thức riêng dòng. Tuyệt đối không xuất các lệnh như \frac, \varepsilon, \cdot, _{...}, ^{...} ở ngoài dấu $. Ví dụ đúng: $A = \varepsilon \cdot L \cdot C$.
+- Trong LaTeX, ký hiệu phần trăm phải viết là \%, ví dụ $E_{1cm}^{1\%}$.
 - Không đặt công thức LaTeX bên trong cặp **...**; nếu cần nhấn mạnh, hãy nhấn mạnh phần chữ mô tả bên ngoài công thức.`;
 
   async function callModel(model){
@@ -1546,6 +1699,8 @@ YÊU CẦU:
     }
     if(!text) throw lastErr || new Error('Không thể kết nối Gemini.');
     renderAiKnowledgeAnswer(answerEl, text);
+    saveAiKnowledgeEntry(topic, question, text);
+    renderAiKnowledgeHistory(modal, topic);
   }catch(err){
     console.error(err);
     answerEl.textContent = 'Lỗi: ' + (err.message || 'Không thể hỏi AI lúc này.');
