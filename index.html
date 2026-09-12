@@ -155,7 +155,7 @@
         <button class="btn small warm" id="manualSyncBtn" type="button">Đồng bộ</button>
       </div>
       <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
-      <div class="sync-status" id="syncStatusLine">☁️ Dữ liệu ngoại tuyến</div>
+      <div class="sync-status" id="syncStatusLine">🔑 Chưa nhập API Key</div>
       <div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.45;">Mỗi API Key tương ứng với một kho dữ liệu riêng.</div>
     </div>
 
@@ -248,8 +248,19 @@ const firebaseConfig = {
   measurementId: "G-RBLZXMX93Y"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+let db = null;
+try {
+  if (typeof firebase === 'undefined') {
+    throw new Error('Không tải được Firebase SDK. Hãy kiểm tra kết nối Internet.');
+  }
+  if (!firebase.apps || firebase.apps.length === 0) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  db = firebase.firestore();
+} catch (err) {
+  console.error('Firebase init error:', err);
+  setTimeout(() => setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true), 0);
+}
 
 function setSyncMsg(msg, isErr = false) {
   const el = document.getElementById('syncStatusLine');
@@ -335,14 +346,15 @@ function resetUiForAccountSwitch() {
   currentLessonId = null;
   currentLesson = null;
   activeTab = 'mindmap';
-  quiz = { index:0, answers:[], started:false, done:false };
+  quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
   uploadedFilesQueue = [];
   currentMmInstance = null;
   currentMmRoot = null;
 }
 
 async function syncFromCloud(apiKey) {
-  if (!apiKey) return;
+  if (!apiKey) { setSyncMsg('🔑 Chưa nhập API Key'); return; }
+  if (!db) { setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true); return; }
 
   const cleanKey = apiKey.replace(/\s+/g, '');
   const uidValue = getUserIdFromApiKey(cleanKey);
@@ -392,11 +404,12 @@ async function syncFromCloud(apiKey) {
     setSyncMsg(`☁️ Kho dữ liệu mới (${uidValue.slice(0,6)})`);
   } catch (err) {
     console.error(err);
-    setSyncMsg('☁️ Lỗi kết nối đám mây', true);
+    setSyncMsg('☁️ Lỗi đồng bộ: ' + (err?.message || 'Không xác định'), true);
   }
 }
 
 async function syncToCloud() {
+  if (!db) { setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true); return; }
   const apiKey = (document.getElementById('apiKeyInput')?.value || '').replace(/\s+/g, '');
   if (!apiKey) return;
 
@@ -444,7 +457,7 @@ async function syncToCloud() {
     setSyncMsg(`☁️ Đã sao lưu (${uidValue.slice(0,6)})`);
   } catch (err) {
     console.error(err);
-    setSyncMsg('☁️ Lưu đám mây thất bại', true);
+    setSyncMsg('☁️ Lưu thất bại: ' + (err?.message || 'Không xác định'), true);
   }
 }
 
@@ -458,7 +471,7 @@ let currentSubjectId = null;
 let currentLessonId = null;
 let currentLesson = null;
 let activeTab = 'mindmap';
-let quiz = { index:0, answers:[], started:false, done:false };
+let quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
 
 let uploadedFilesQueue = [];
 let currentMmInstance = null;
@@ -499,12 +512,15 @@ async function init(){
     resetUiForAccountSwitch();
     renderSidebar();
     renderMain();
+    setSyncMsg('🔑 Chưa nhập API Key');
   }
 
-  // Không tự chuyển tài khoản chỉ vì focus/blur; nút Đồng bộ là thao tác rõ ràng nhất.
+  // Cho phép đồng bộ rõ ràng bằng nút/Enter và tự nhận key khi dán hoặc thay đổi.
   keyInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') triggerSync();
   });
+  keyInput.addEventListener('paste', () => setTimeout(triggerSync, 80));
+  keyInput.addEventListener('change', triggerSync);
   if(syncBtn) syncBtn.addEventListener('click', triggerSync);
 }
 init();
@@ -616,7 +632,7 @@ function renderSidebar(){
           currentSubjectId = subj.id;
           currentLessonId = lesson.id;
           activeTab = 'mindmap';
-          quiz = { index:0, answers:[], started:false, done:false };
+          quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
           uploadedFilesQueue = [];
           currentLesson = getStore('lesson:'+lesson.id);
           renderSidebar(); renderMain();
@@ -719,7 +735,7 @@ function renderMain(){
     t.textContent = toNFC(label);
     t.addEventListener('click', () => { 
       activeTab = key; 
-      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false}; } 
+      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false,reviewMode:false,reviewQuestions:[]}; } 
       renderMain(); 
     });
     tabs.appendChild(t);
@@ -1188,7 +1204,7 @@ YÊU CẦU:
     setStore('lesson:' + currentLessonId, currentLesson);
     await syncToCloud();
 
-    quiz = { index:0, answers:[], started:false, done:false };
+    quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
     renderMain();
   } catch(err) {
     console.error('regenerateOnlyQuiz error:', err);
@@ -1271,8 +1287,7 @@ function renderMindmap(container){
   const LINE_H = 19;
   const TOGGLE_OFFSET = 18;
   const DEPTH_GAP = 88;
-  const VERTICAL_GAP = 96;
-  const MAX_LINES = 3;
+  const NODE_GAP_Y = 24; // khoảng trống tối thiểu giữa 2 ô theo chiều dọc
 
   function fontForDepth(depth){
     if(depth === 0) return '700 15px "Be Vietnam Pro", sans-serif';
@@ -1302,13 +1317,7 @@ function renderMindmap(container){
       }
     }
     if(line) lines.push(line);
-    if(lines.length > MAX_LINES){
-      const cut = lines.slice(0, MAX_LINES);
-      let last = cut[MAX_LINES-1];
-      while(last.length > 1 && ctx.measureText(last + '…').width > maxTextW){ last = last.slice(0,-1); }
-      cut[MAX_LINES-1] = last.replace(/[\s,;:.!?-]+$/,'') + '…';
-      return cut;
-    }
+    // Không giới hạn số dòng: ô sẽ tự tăng chiều cao theo lượng chữ.
     return lines;
   }
   function prepareNode(d){
@@ -1325,14 +1334,23 @@ function renderMindmap(container){
   }
 
   function update(source){
+    // Chuẩn bị kích thước trước khi bố trí cây để D3 có thể chừa đúng
+    // khoảng trống cho các ô cao/thấp khác nhau.
+    const visibleBeforeLayout = root.descendants();
+    visibleBeforeLayout.forEach(prepareNode);
+
     const tree = d3.tree()
-      .nodeSize([VERTICAL_GAP, 1])
-      .separation((a,b) => a.parent === b.parent ? 1 : 1.15);
+      .nodeSize([1, 1])
+      .separation((a,b) => {
+        // Khoảng cách tâm-tâm = nửa chiều cao hai ô + khoảng trống.
+        // Nhánh khác cha được nới thêm một chút để sơ đồ dễ đọc.
+        const extra = a.parent === b.parent ? NODE_GAP_Y : NODE_GAP_Y + 12;
+        return (a._cardHeight + b._cardHeight) / 2 + extra;
+      });
     tree(root);
 
     const nodes = root.descendants();
     const links = root.links();
-    nodes.forEach(prepareNode);
 
     const maxDepth = d3.max(nodes, d => d.depth) || 0;
     const depthWidths = Array.from({length:maxDepth+1}, (_,depth) => {
@@ -1473,12 +1491,14 @@ function renderMindmap(container){
 /* 8. QUIZ ENGINE */
 function renderQuiz(container){
   container.innerHTML = '';
-  const questions = currentLesson.questions || [];
+  const questions = (quiz.reviewMode && Array.isArray(quiz.reviewQuestions))
+    ? quiz.reviewQuestions
+    : (currentLesson.questions || []);
 
   const topControls = document.createElement('div');
   topControls.className = 'quiz-top-bar';
   topControls.innerHTML = `
-    <div class="q-progress">Câu ${quiz.done ? questions.length : quiz.index+1} / ${questions.length}</div>
+    <div class="q-progress">${quiz.reviewMode ? 'Ôn câu sai · ' : ''}Câu ${quiz.done ? questions.length : quiz.index+1} / ${questions.length}</div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <select id="quickCountSelect" style="padding:5px 8px; font-size:12.5px; border:1px solid var(--line); border-radius:6px; font-family:var(--font-main);">
         <option value="10">10 câu</option>
@@ -1588,7 +1608,7 @@ async function saveAttempt(questions){
     correctIndex: q.correctIndex, correct: quiz.answers[idx] === q.correctIndex
   }));
   const score = answers.filter(a => a.correct).length;
-  const attempt = { date: Date.now(), score, total: questions.length, answers };
+  const attempt = { date: Date.now(), score, total: questions.length, answers, mode: quiz.reviewMode ? 'wrong-review' : 'full' };
   const prev = getStore('attempts:'+currentLessonId) || [];
   prev.unshift(attempt);
   setStore('attempts:'+currentLessonId, prev);
@@ -1604,15 +1624,48 @@ function renderQuizScore(container, questions){
   const score = answers.filter(a=>a.correct).length;
   const wrap = document.createElement('div');
   wrap.className = 'card score-card';
+  const wrongQuestions = questions.filter((q, idx) => quiz.answers[idx] !== q.correctIndex);
   wrap.innerHTML = `<div class="score-num">${score}/${questions.length}</div><p style="color:var(--muted)">Số câu trả lời đúng</p>
-    <div style="display:flex; justify-content:center; gap:8px; margin-top:14px;">
-      <button class="btn" id="retryBtn">Làm lại bài thi này</button>
-    </div>`;
+    <div style="display:flex; justify-content:center; gap:8px; margin-top:14px; flex-wrap:wrap;">
+      ${wrongQuestions.length ? `<button class="btn warm" id="retryWrongBtn">↻ Ôn lại ${wrongQuestions.length} câu sai</button>` : ''}
+      <button class="btn${wrongQuestions.length ? ' ghost' : ''}" id="retryBtn">${quiz.reviewMode ? 'Làm lại bộ câu đang ôn' : 'Làm lại bài thi này'}</button>
+      ${quiz.reviewMode ? '<button class="btn ghost" id="backFullQuizBtn">Quay lại bộ đề đầy đủ</button>' : ''}
+    </div>
+    ${wrongQuestions.length === 0 ? '<div style="margin-top:12px;color:var(--correct);font-weight:700;">🎉 Bạn đã trả lời đúng tất cả câu hỏi.</div>' : ''}`;
   container.appendChild(wrap);
-  wrap.querySelector('#retryBtn').addEventListener('click', () => { 
-    quiz = {index:0, answers:[], started:false, done:false}; 
-    renderQuiz(container); 
+  wrap.querySelector('#retryBtn').addEventListener('click', () => {
+    const keepReviewMode = !!quiz.reviewMode;
+    const keepReviewQuestions = keepReviewMode && Array.isArray(quiz.reviewQuestions) ? [...quiz.reviewQuestions] : [];
+    quiz = {
+      index:0, answers:[], started:false, done:false,
+      reviewMode: keepReviewMode,
+      reviewQuestions: keepReviewQuestions
+    };
+    renderQuiz(container);
   });
+
+  const retryWrongBtn = wrap.querySelector('#retryWrongBtn');
+  if(retryWrongBtn){
+    retryWrongBtn.addEventListener('click', () => {
+      quiz = {
+        index:0,
+        answers:[],
+        started:false,
+        done:false,
+        reviewMode:true,
+        reviewQuestions:[...wrongQuestions]
+      };
+      renderQuiz(container);
+    });
+  }
+
+  const backFullQuizBtn = wrap.querySelector('#backFullQuizBtn');
+  if(backFullQuizBtn){
+    backFullQuizBtn.addEventListener('click', () => {
+      quiz = {index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[]};
+      renderQuiz(container);
+    });
+  }
 
   const revWrap = document.createElement('div');
   revWrap.className = 'review-list';
