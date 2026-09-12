@@ -741,7 +741,7 @@ function renderMindmap(container){
   const wrap = document.createElement('div');
   wrap.innerHTML = `
     <div class="mindmap-help">
-      <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ nhánh.</em></span>
+      <span class="hint">💡 <em>Bấm vào <strong>ô chữ</strong> hoặc nút <strong>› / ‹</strong> để Bật / Xổ nhánh. Có thể kéo sơ đồ để xem phần ngoài màn hình.</em></span>
       <button class="btn ghost small" id="regenBtn">Nạp lại / Thêm tài liệu</button>
     </div>
     <div class="mindmap-wrapper" id="mmWrap">
@@ -782,7 +782,7 @@ function renderMindmap(container){
   const root = d3.hierarchy(data);
   currentMmRoot = root;
 
-  // Thu gọn từ cấp 2 để màn hình đầu tiên nhẹ và dễ đọc.
+  // Mặc định chỉ mở tới cấp 2: đủ trực quan mà vẫn giữ chữ lớn, dễ đọc.
   root.each(d => {
     if(d.depth >= 2 && d.children){ d._children = d.children; d.children = null; }
   });
@@ -793,47 +793,60 @@ function renderMindmap(container){
   const linkLayer = scene.append('g').attr('class','mm-links');
   const nodeLayer = scene.append('g').attr('class','mm-nodes');
 
-  const zoom = d3.zoom().scaleExtent([0.18, 3.5]).on('zoom', ev => scene.attr('transform', ev.transform));
+  const zoom = d3.zoom().scaleExtent([0.55, 2.8]).on('zoom', ev => scene.attr('transform', ev.transform));
   svg.call(zoom).on('dblclick.zoom', null);
   currentMmInstance = { svg, scene, zoom, root };
 
   const ctx = document.createElement('canvas').getContext('2d');
-  const CARD_H = 46;
-  const PAD_X = 16;
-  const TOGGLE_OFFSET = 20;
+  const PAD_X = 15;
+  const PAD_Y = 10;
+  const LINE_H = 18;
+  const TOGGLE_OFFSET = 18;
   const DEPTH_GAP = 88;
-  const VERTICAL_GAP = 78;
+  const VERTICAL_GAP = 96;
+  const MAX_LINES = 3;
 
   function fontForDepth(depth){
-    if(depth === 0) return '720 14.5px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
-    if(depth === 1) return '650 13.8px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
-    return '600 13.5px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+    if(depth === 0) return '700 15px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+    if(depth === 1) return '650 14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+    return '600 13.3px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
   }
-  function maxWidthForDepth(depth){
-    if(depth === 0) return 360;
-    if(depth === 1) return 330;
-    return 350;
+  function widthForDepth(depth){
+    if(depth === 0) return 320;
+    if(depth === 1) return 250;
+    if(depth === 2) return 245;
+    return 290;
   }
-  function minWidthForDepth(depth){
-    if(depth === 0) return 270;
-    if(depth === 1) return 190;
-    return 145;
-  }
-  function measuredWidth(d){
-    ctx.font = fontForDepth(d.depth);
-    const raw = Math.ceil(ctx.measureText(d.data.name || '').width) + PAD_X*2;
-    return Math.max(minWidthForDepth(d.depth), Math.min(raw, maxWidthForDepth(d.depth)));
-  }
-  function fitText(text, depth, width){
+  function wrapLines(text, depth, width){
     ctx.font = fontForDepth(depth);
-    const available = width - PAD_X*2;
-    if(ctx.measureText(text).width <= available) return text;
-    let lo=0, hi=text.length;
-    while(lo<hi){
-      const mid=Math.ceil((lo+hi)/2);
-      if(ctx.measureText(text.slice(0,mid)+'…').width <= available) lo=mid; else hi=mid-1;
+    const maxTextW = width - PAD_X*2;
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if(!words.length) return [''];
+    const lines=[];
+    let line='';
+    for(const word of words){
+      const test = line ? line + ' ' + word : word;
+      if(ctx.measureText(test).width <= maxTextW){
+        line = test;
+      }else{
+        if(line) lines.push(line);
+        line = word;
+      }
     }
-    return text.slice(0,Math.max(1,lo))+'…';
+    if(line) lines.push(line);
+    if(lines.length > MAX_LINES){
+      const cut = lines.slice(0, MAX_LINES);
+      let last = cut[MAX_LINES-1];
+      while(last.length > 1 && ctx.measureText(last + '…').width > maxTextW){ last = last.slice(0,-1); }
+      cut[MAX_LINES-1] = last.replace(/[\s,;:.!?-]+$/,'') + '…';
+      return cut;
+    }
+    return lines;
+  }
+  function prepareNode(d){
+    d._cardWidth = widthForDepth(d.depth);
+    d._lines = wrapLines(d.data.name || '', d.depth, d._cardWidth);
+    d._cardHeight = Math.max(42, PAD_Y*2 + d._lines.length*LINE_H);
   }
   function hasAnyChildren(d){ return !!((d.children && d.children.length) || (d._children && d._children.length)); }
   function toggleNode(d){
@@ -841,24 +854,23 @@ function renderMindmap(container){
     if(d.children){ d._children = d.children; d.children = null; }
     else { d.children = d._children; d._children = null; }
     update(d);
-    setTimeout(fitMap, 300);
+    // Không tự co toàn bộ cây sau mỗi lần mở nhánh — giữ chữ ở kích thước dễ đọc.
   }
 
   function update(source){
-    // D3 lo phần căn giữa theo chiều dọc; trục ngang tự tính theo độ rộng lớn nhất từng cấp.
     const tree = d3.tree()
       .nodeSize([VERTICAL_GAP, 1])
-      .separation((a,b) => a.parent === b.parent ? 1 : 1.18);
+      .separation((a,b) => a.parent === b.parent ? 1 : 1.15);
     tree(root);
 
     const nodes = root.descendants();
     const links = root.links();
-    nodes.forEach(d => { d._cardWidth = measuredWidth(d); });
+    nodes.forEach(prepareNode);
 
     const maxDepth = d3.max(nodes, d => d.depth) || 0;
     const depthWidths = Array.from({length:maxDepth+1}, (_,depth) => {
       const vals = nodes.filter(d=>d.depth===depth).map(d=>d._cardWidth);
-      return vals.length ? d3.max(vals) : 180;
+      return vals.length ? d3.max(vals) : 220;
     });
     const depthX = [0];
     for(let depth=1; depth<=maxDepth; depth++){
@@ -875,40 +887,52 @@ function renderMindmap(container){
       .attr('transform', d => `translate(${source?.plotX ?? d.plotX},${source?.plotY ?? d.plotY})`)
       .style('opacity',0);
 
-    enter.append('rect').attr('class','mm-node-card').attr('rx',8).attr('ry',8).attr('height',CARD_H);
-    enter.append('text').attr('class','mm-node-label').attr('x',PAD_X).attr('y',CARD_H/2).attr('dominant-baseline','central');
+    enter.append('rect').attr('class','mm-node-card').attr('rx',9).attr('ry',9);
+    enter.append('text').attr('class','mm-node-label');
     enter.append('title');
-    enter.append('rect').attr('class','mm-hit').attr('y',0).attr('height',CARD_H)
-      .on('click', (ev,d)=>{ ev.stopPropagation(); toggleNode(d); });
-    const tg = enter.append('g').attr('class','mm-toggle')
-      .on('click',(ev,d)=>{ev.stopPropagation();toggleNode(d);});
-    tg.append('circle').attr('r',10.5);
+    enter.append('rect').attr('class','mm-hit').on('click', (ev,d)=>{ ev.stopPropagation(); toggleNode(d); });
+    const tg = enter.append('g').attr('class','mm-toggle').on('click',(ev,d)=>{ev.stopPropagation();toggleNode(d);});
+    tg.append('circle').attr('r',10);
     tg.append('text').attr('y',.5);
 
     const merged = enter.merge(nodeSel);
     merged.attr('class', d => `mm-node depth-${Math.min(d.depth,4)}`)
-      .transition().duration(280)
-      .ease(d3.easeCubicOut)
+      .transition().duration(260).ease(d3.easeCubicOut)
       .style('opacity',1)
-      .attr('transform', d => `translate(${d.plotX},${d.plotY-CARD_H/2})`);
+      .attr('transform', d => `translate(${d.plotX},${d.plotY-d._cardHeight/2})`);
 
-    merged.select('.mm-node-card').attr('width', d => d._cardWidth);
-    merged.select('.mm-node-label').text(d => fitText(d.data.name || '', d.depth, d._cardWidth));
+    merged.select('.mm-node-card')
+      .attr('width', d => d._cardWidth)
+      .attr('height', d => d._cardHeight);
+
+    merged.select('.mm-node-label').each(function(d){
+      const text = d3.select(this);
+      text.selectAll('tspan').remove();
+      d._lines.forEach((line,i) => {
+        text.append('tspan')
+          .attr('x', PAD_X)
+          .attr('y', PAD_Y + LINE_H*(i+0.78))
+          .text(line);
+      });
+    });
+
     merged.select('title').text(d => d.data.name || '');
-    merged.select('.mm-hit').attr('width', d => d._cardWidth);
+    merged.select('.mm-hit')
+      .attr('width', d => d._cardWidth)
+      .attr('height', d => d._cardHeight);
     merged.select('.mm-toggle')
       .style('display', d => hasAnyChildren(d) ? null : 'none')
-      .attr('transform', d => `translate(${d._cardWidth+TOGGLE_OFFSET},${CARD_H/2})`);
+      .attr('transform', d => `translate(${d._cardWidth+TOGGLE_OFFSET},${d._cardHeight/2})`);
     merged.select('.mm-toggle text').text(d => d.children ? '‹' : '›');
 
-    nodeSel.exit().transition().duration(180).style('opacity',0).remove();
+    nodeSel.exit().transition().duration(160).style('opacity',0).remove();
 
     function linkPath(l){
-      const sx = l.source.plotX + l.source._cardWidth + (hasAnyChildren(l.source) ? TOGGLE_OFFSET+11 : 8);
+      const sx = l.source.plotX + l.source._cardWidth + (hasAnyChildren(l.source) ? TOGGLE_OFFSET+10 : 8);
       const sy = l.source.plotY;
       const tx = l.target.plotX;
       const ty = l.target.plotY;
-      const bend = Math.max(34, (tx-sx)*0.52);
+      const bend = Math.max(38, (tx-sx)*0.5);
       return `M${sx},${sy} C${sx+bend},${sy} ${tx-bend},${ty} ${tx},${ty}`;
     }
 
@@ -919,9 +943,9 @@ function renderMindmap(container){
         return `M${x},${y} C${x},${y} ${x},${y} ${x},${y}`;
       })
       .merge(linkSel)
-      .transition().duration(280).ease(d3.easeCubicOut)
+      .transition().duration(260).ease(d3.easeCubicOut)
       .attr('d',linkPath);
-    linkSel.exit().transition().duration(180).style('opacity',0).remove();
+    linkSel.exit().transition().duration(160).style('opacity',0).remove();
   }
 
   function expandRecursively(d){
@@ -934,31 +958,44 @@ function renderMindmap(container){
     if(d.depth >= depth && d.children){ d._children=d.children; d.children=null; }
   }
 
-  function fitMap(){
+  function readableFit(preferredScale=0.86){
     const box = scene.node().getBBox();
     if(!box.width || !box.height) return;
     const width = viewportNode.clientWidth, height = viewportNode.clientHeight;
-    const marginX = 90, marginY = 70;
-    const scale = Math.min(1.08, Math.max(.18,
-      Math.min((width-marginX*2)/box.width, (height-marginY*2)/box.height)));
-    const tx = (width - box.width*scale)/2 - box.x*scale;
-    const ty = (height - box.height*scale)/2 - box.y*scale;
-    svg.transition().duration(380).ease(d3.easeCubicOut)
+    const marginX = 70, marginY = 64;
+    const fitScale = Math.min((width-marginX*2)/box.width, (height-marginY*2)/box.height);
+    // Không cho nhỏ hơn 0.72 để chữ không biến thành li ti.
+    const scale = Math.min(1.05, Math.max(0.72, Math.min(preferredScale, fitScale > 0.72 ? fitScale : preferredScale)));
+    const rootNode = root;
+    const rootCenterX = rootNode.plotX + rootNode._cardWidth/2;
+    const rootCenterY = rootNode.plotY;
+    const tx = Math.max(70, width*0.12) - rootCenterX*scale;
+    const ty = height/2 - rootCenterY*scale;
+    svg.transition().duration(320).ease(d3.easeCubicOut)
       .call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(scale));
   }
 
+  function centerCurrent(){
+    readableFit(0.88);
+  }
+
   update(root);
-  setTimeout(fitMap, 90);
+  setTimeout(() => readableFit(0.9), 90);
 
   wrap.querySelector('#expandAllBtn').onclick = () => {
-    expandRecursively(root); update(root); setTimeout(fitMap,320);
+    expandRecursively(root);
+    update(root);
+    // Mở tất cả nhưng vẫn giữ mức zoom đọc được; người dùng kéo để xem tiếp.
+    setTimeout(() => readableFit(0.78), 220);
   };
   wrap.querySelector('#collapseAllBtn').onclick = () => {
-    collapseFromDepth(root, 2); update(root); setTimeout(fitMap,320);
+    collapseFromDepth(root, 2);
+    update(root);
+    setTimeout(() => readableFit(0.9), 220);
   };
-  wrap.querySelector('#zoomInBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,1.22);
-  wrap.querySelector('#zoomOutBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,.82);
-  wrap.querySelector('#fitBtn').onclick = fitMap;
+  wrap.querySelector('#zoomInBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,1.18);
+  wrap.querySelector('#zoomOutBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,.85);
+  wrap.querySelector('#fitBtn').onclick = centerCurrent;
 
   wrap.querySelector('#regenBtn').addEventListener('click', () => {
     if(!confirm('Bạn có muốn tải lại tài liệu giáo trình cho bài học này không?')) return;
@@ -968,7 +1005,6 @@ function renderMindmap(container){
   });
 }
 
-/* 7. TRẮC NGHIỆM PHẢN HỒI TỨC THÌ */
 function renderQuiz(container){
   container.innerHTML = '';
   const questions = currentLesson.questions || [];
