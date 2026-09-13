@@ -129,7 +129,7 @@
   .upload-box{border:1.5px dashed rgba(14,165,164,.38);padding:36px 20px;border-radius:16px;text-align:center;background:linear-gradient(135deg,rgba(226,249,247,.66),rgba(238,245,255,.58));margin-bottom:16px;cursor:pointer;transition:.2s ease}.upload-box:hover,.upload-box.dragover{border-color:var(--accent);background:linear-gradient(135deg,rgba(216,248,246,.92),rgba(230,242,255,.85));transform:translateY(-1px)}
   .file-queue{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.file-chip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(240,249,249,.88);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink)}.file-chip .chip-del{cursor:pointer;color:var(--muted);font-weight:bold;padding:0 4px}.file-chip .chip-del:hover{color:var(--wrong)}
   .field{margin-bottom:16px}.field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;font-weight:650}.field textarea{width:100%;min-height:100px;resize:vertical;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72);line-height:1.55;color:var(--ink)}
-  .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:7px;color:var(--correct);font-weight:650}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
+  .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:8px;color:var(--correct);font-weight:650;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto;padding:0}.paste-source-state.has-text{color:var(--ink);font-weight:500;background:rgba(255,255,255,.68);border:1px solid rgba(14,165,164,.14);border-radius:10px;padding:10px 11px;line-height:1.55}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
   .quiz-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;padding:14px;background:rgba(244,250,251,.66);border:1px solid var(--line);border-radius:14px}.quiz-options-grid label{font-size:12px;color:var(--ink-2);font-weight:650;display:block;margin-bottom:6px}.quiz-options-grid select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.78);font-size:13px;color:var(--ink)}.status-line{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
 
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.48);border:1px solid var(--line);backdrop-filter:blur(12px)}.mindmap-help .hint{font-size:12.5px;color:var(--muted)}
@@ -142,7 +142,11 @@
 
   @media(max-width:1100px){.feature-grid{grid-template-columns:repeat(2,1fr)}.main{padding:26px 28px 54px}.hero h2{font-size:42px}}
   @media(max-width:820px){.app{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;border-right:none;border-bottom:1px solid var(--line);padding:14px}.brand-sub{padding-left:44px}.main{padding:22px 16px 44px}.home-shell{min-height:auto;padding-top:20px}.hero{margin:28px auto}.hero h2{font-size:36px}.feature-grid{grid-template-columns:1fr 1fr;gap:12px}.feature-card{min-height:170px;padding:20px 14px}.lesson-header{padding:15px}.tabs{width:100%;justify-content:flex-start}.mindmap-help{align-items:flex-start;flex-direction:column}#mindmapViewport{height:620px}.mindmap-wrapper{min-height:620px}}
-  @media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
+    .ai-answer .katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0}
+  .plan-quota-box{margin-top:12px;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:rgba(244,250,251,.72);font-size:11.5px;color:var(--muted);line-height:1.45}
+  .plan-quota-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.plan-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font-weight:800;font-size:10.5px;background:#E7F7F5;color:var(--accent-dark);border:1px solid rgba(14,165,164,.20)}.plan-badge.pro{background:#FFF3D9;color:#9a6400;border-color:rgba(245,158,11,.28)}
+  .quota-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}.quota-item{display:flex;justify-content:space-between;gap:8px}.quota-item strong{color:var(--ink-2);font-weight:750}.quota-full{color:var(--wrong)!important}.quota-ok{color:var(--correct)!important}.quota-note{margin-top:7px;font-size:10.5px;color:var(--muted)}
+@media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
 
 
   /* ===== HỎI AI TỪ MIND MAP ===== */
@@ -233,6 +237,14 @@
           <button class="btn small" id="logoutBtn" type="button">Đăng xuất</button>
         </div>
         <div id="authStatus" style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.45;"></div>
+        <div id="planQuotaBox" class="plan-quota-box" style="display:none;">
+          <div class="plan-quota-head">
+            <strong style="color:var(--ink-2);">Gói sử dụng</strong>
+            <span id="planBadge" class="plan-badge">FREE</span>
+          </div>
+          <div id="quotaGrid" class="quota-grid"></div>
+          <div id="quotaNote" class="quota-note"></div>
+        </div>
       </div>
 
       <label>Google Gemini API Key:</label>
@@ -357,6 +369,132 @@ function setSyncMsg(msg, isErr = false) {
     const ok = msg.includes('Đã đồng bộ') || msg.includes('Đã sao lưu') || msg.includes('Kho dữ liệu mới');
     el.style.color = isErr ? 'var(--wrong)' : (ok ? 'var(--correct)' : 'var(--muted)');
   }
+}
+
+/* ===== FREE / PRO & QUOTA ===== */
+const FREE_LIMITS = Object.freeze({
+  subjects: 5,
+  lessons: 6,
+  documents: 7,
+  quizQuestions: 80,
+  aiQuestions: 20
+});
+let accountPlan = 'free';
+let accountUsage = { month: '', quizQuestions: 0, aiQuestions: 0 };
+
+function currentMonthKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function normalizeUsage(raw){
+  const month = currentMonthKey();
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  if(src.month !== month) return { month, quizQuestions:0, aiQuestions:0 };
+  return {
+    month,
+    quizQuestions: Math.max(0, Number(src.quizQuestions)||0),
+    aiQuestions: Math.max(0, Number(src.aiQuestions)||0)
+  };
+}
+function isPro(){ return accountPlan === 'pro'; }
+function totalLessonCount(){
+  return Object.values(toc?.lessonsBySubject || {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+}
+async function totalDocumentCount(){
+  if(!activeUid) return 0;
+  try{
+    const dbi = await openSourceDb();
+    return await new Promise((resolve,reject)=>{
+      let count=0;
+      const tx=dbi.transaction(SOURCE_STORE,'readonly');
+      const req=tx.objectStore(SOURCE_STORE).openCursor();
+      req.onsuccess=()=>{
+        const cur=req.result;
+        if(!cur){ resolve(count); return; }
+        const value=cur.value || {};
+        if(value.uid === activeUid && Array.isArray(value.sources)) count += value.sources.length;
+        cur.continue();
+      };
+      req.onerror=()=>reject(req.error);
+    });
+  }catch(err){ console.error('totalDocumentCount error:',err); return 0; }
+}
+function quotaMessage(label, used, limit){
+  return `Bạn đã đạt giới hạn Free: ${label} ${used}/${limit}. Nâng cấp Pro để sử dụng không giới hạn.`;
+}
+async function updateQuotaUI(){
+  const box=document.getElementById('planQuotaBox');
+  if(!box) return;
+  if(!auth?.currentUser){ box.style.display='none'; return; }
+  box.style.display='block';
+  accountUsage=normalizeUsage(accountUsage);
+  const badge=document.getElementById('planBadge');
+  const grid=document.getElementById('quotaGrid');
+  const note=document.getElementById('quotaNote');
+  const docs=await totalDocumentCount();
+  const vals=[
+    ['Môn học', (toc?.subjects||[]).length, FREE_LIMITS.subjects],
+    ['Bài học', totalLessonCount(), FREE_LIMITS.lessons],
+    ['Tài liệu', docs, FREE_LIMITS.documents],
+    ['Trắc nghiệm', accountUsage.quizQuestions, FREE_LIMITS.quizQuestions],
+    ['Hỏi AI', accountUsage.aiQuestions, FREE_LIMITS.aiQuestions]
+  ];
+  badge.textContent=isPro()?'PRO':'FREE';
+  badge.className='plan-badge'+(isPro()?' pro':'');
+  grid.innerHTML='';
+  vals.forEach(([label,used,limit])=>{
+    const row=document.createElement('div'); row.className='quota-item';
+    const l=document.createElement('span'); l.textContent=label;
+    const v=document.createElement('strong');
+    v.textContent=isPro()?'Không giới hạn':`${used}/${limit}`;
+    if(!isPro()) v.className = used>=limit ? 'quota-full' : 'quota-ok';
+    row.append(l,v); grid.appendChild(row);
+  });
+  note.textContent=isPro()
+    ? 'Gói Pro: không giới hạn các quota của MedStudy AI. Gemini vẫn sử dụng API Key cá nhân.'
+    : `Quota Trắc nghiệm và Hỏi AI tự reset mỗi tháng (${accountUsage.month}).`;
+}
+
+async function reserveMonthlyQuota(kind, amount=1){
+  if(isPro()) return {reserved:false, amount:0};
+  const user=auth?.currentUser;
+  if(!user) throw new Error('Vui lòng đăng nhập tài khoản MedStudy AI.');
+  const limit = kind==='quizQuestions' ? FREE_LIMITS.quizQuestions : FREE_LIMITS.aiQuestions;
+  const label = kind==='quizQuestions' ? 'câu trắc nghiệm/tháng' : 'lượt Hỏi AI/tháng';
+  const ref=db.collection('users').doc(user.uid);
+  let nextUsage=null;
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    const data=snap.exists ? (snap.data()||{}) : {};
+    if(data.plan === 'pro'){ accountPlan='pro'; return; }
+    const usage=normalizeUsage(data.usage);
+    const current=Number(usage[kind])||0;
+    if(current + amount > limit){
+      const err=new Error(quotaMessage(label,current,limit)); err.code='quota-exceeded'; throw err;
+    }
+    usage[kind]=current+amount;
+    nextUsage=usage;
+    tx.set(ref,{usage,updatedAt:Date.now()},{merge:true});
+  });
+  if(accountPlan==='pro') { await updateQuotaUI(); return {reserved:false,amount:0}; }
+  if(nextUsage) accountUsage=nextUsage;
+  await updateQuotaUI();
+  return {reserved:true,amount};
+}
+async function refundMonthlyQuota(kind, amount=1){
+  if(!amount || isPro() || !auth?.currentUser) return;
+  const ref=db.collection('users').doc(auth.currentUser.uid);
+  try{
+    await db.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      const data=snap.exists?(snap.data()||{}):{};
+      const usage=normalizeUsage(data.usage);
+      usage[kind]=Math.max(0,(Number(usage[kind])||0)-amount);
+      accountUsage=usage;
+      tx.set(ref,{usage,updatedAt:Date.now()},{merge:true});
+    });
+    await updateQuotaUI();
+  }catch(err){ console.error('refundMonthlyQuota error:',err); }
 }
 
 /*
@@ -515,8 +653,12 @@ async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
     if (hasMeaningfulCloudData(newData)) return false;
     if (!hasMeaningfulCloudData(oldData)) return false;
 
+    // Không mang trường plan từ kho cũ sang tài khoản mới.
+    // Gói Pro chỉ được cấp bởi quản trị viên/backend, không từ dữ liệu client cũ.
+    const { plan: _legacyPlan, ...safeOldData } = oldData;
     await newRef.set({
-      ...oldData,
+      ...safeOldData,
+      plan: 'free',
       migratedFromApiKeyUid: oldUid,
       migratedAt: Date.now(),
       updatedAt: Date.now()
@@ -532,6 +674,8 @@ async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
 
 function resetUiForAccountSwitch() {
   toc = { subjects: [], lessonsBySubject: {} };
+  accountPlan = 'free';
+  accountUsage = { month: currentMonthKey(), quizQuestions:0, aiQuestions:0 };
   openSubjects.clear();
   currentSubjectId = null;
   currentLessonId = null;
@@ -577,6 +721,8 @@ async function syncFromCloud() {
 
     if (doc.exists) {
       const data = doc.data() || {};
+      accountPlan = data.plan === 'pro' ? 'pro' : 'free';
+      accountUsage = normalizeUsage(data.usage);
       toc = data.toc || { subjects: [], lessonsBySubject: {} };
       setStore('toc', toc);
 
@@ -589,6 +735,7 @@ async function syncFromCloud() {
 
       renderSidebar();
       renderMain();
+      await updateQuotaUI();
       setSyncMsg(`☁️ Đã đồng bộ (${uidValue.slice(0,6)})`);
       return;
     }
@@ -599,13 +746,18 @@ async function syncFromCloud() {
     renderSidebar();
     renderMain();
 
+    accountPlan = 'free';
+    accountUsage = normalizeUsage(null);
     await db.collection('users').doc(uidValue).set({
       toc,
       lessons: {},
       attempts: {},
+      plan: 'free',
+      usage: accountUsage,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }, { merge: true });
+    await updateQuotaUI();
 
     setSyncMsg(`☁️ Kho dữ liệu mới (${uidValue.slice(0,6)})`);
   } catch (err) {
@@ -624,10 +776,12 @@ async function syncToCloud() {
   activeUid = uidValue;
 
   try {
+    accountUsage = normalizeUsage(accountUsage);
     const payload = {
       toc: getStore('toc') || { subjects: [], lessonsBySubject: {} },
       lessons: {},
       attempts: {},
+      usage: accountUsage,
       updatedAt: Date.now()
     };
 
@@ -843,6 +997,7 @@ async function init(){
         await recoverLegacyApiKeyCloudData(user.uid, savedKey);
       }
       await syncFromCloud();
+      await updateQuotaUI();
     }else{
       activeUid = null;
       authLoggedOut.style.display='block';
@@ -853,6 +1008,7 @@ async function init(){
       renderMain();
       setAuthStatus('Đăng nhập để đồng bộ dữ liệu giữa các thiết bị.');
       setSyncMsg('👤 Chưa đăng nhập');
+      updateQuotaUI();
     }
   });
 
@@ -921,6 +1077,7 @@ function renderSidebar(){
       toc.subjects = toc.subjects.filter(s => s.id !== subj.id);
       setStore('toc', toc);
       syncToCloud();
+      updateQuotaUI();
       if(currentSubjectId === subj.id){ currentSubjectId=null; currentLessonId=null; currentLesson=null; }
       renderSidebar(); renderMain();
     });
@@ -966,6 +1123,7 @@ function renderSidebar(){
           toc.lessonsBySubject[subj.id] = toc.lessonsBySubject[subj.id].filter(l => l.id !== lesson.id);
           setStore('toc', toc);
           syncToCloud();
+          updateQuotaUI();
           if(currentLessonId === lesson.id){ currentLessonId=null; currentLesson=null; }
           renderSidebar(); renderMain();
         });
@@ -1000,6 +1158,10 @@ function renderSidebar(){
 function addLesson(subjectId, inputEl){
   const name = toNFC(inputEl.value.trim());
   if(!name) return;
+  if(!isPro() && totalLessonCount() >= FREE_LIMITS.lessons){
+    alert(quotaMessage('bài học', totalLessonCount(), FREE_LIMITS.lessons));
+    return;
+  }
   const id = uid();
   if(!toc.lessonsBySubject[subjectId]) toc.lessonsBySubject[subjectId] = [];
   toc.lessonsBySubject[subjectId].push({ id, name, createdAt: Date.now() });
@@ -1012,6 +1174,7 @@ function addLesson(subjectId, inputEl){
   uploadedFilesQueue = [];
   activeTab = 'mindmap';
   renderSidebar(); renderMain();
+  updateQuotaUI();
 }
 
 document.getElementById('addSubjectBtn').addEventListener('click', addSubjectHandler);
@@ -1020,6 +1183,10 @@ function addSubjectHandler(){
   const inp = document.getElementById('newSubjectInput');
   const name = toNFC(inp.value.trim());
   if(!name) return;
+  if(!isPro() && (toc.subjects || []).length >= FREE_LIMITS.subjects){
+    alert(quotaMessage('môn học', (toc.subjects || []).length, FREE_LIMITS.subjects));
+    return;
+  }
   const id = uid();
   toc.subjects.push({ id, name });
   toc.lessonsBySubject[id] = [];
@@ -1028,6 +1195,7 @@ function addSubjectHandler(){
   syncToCloud();
   inp.value = '';
   renderSidebar();
+  updateQuotaUI();
 }
 
 /* 4. MAIN CONTAINER */
@@ -1177,6 +1345,7 @@ function renderGenerateForm(){
           uploadedFilesQueue.splice(idx, 1);
           await saveLessonSources(currentLessonId, uploadedFilesQueue);
           renderQueueList();
+          updateQuotaUI();
         });
         queueEl.appendChild(chip);
       });
@@ -1199,7 +1368,16 @@ function renderGenerateForm(){
       const n = f.name.toLowerCase();
       return supported.has(f.type) || /\.(pdf|jpe?g|png|webp|heic|heif)$/.test(n);
     });
-    const validFiles = candidates.filter(f => f.size <= MAX_FILE_SIZE).slice(0, Math.max(0, MAX_FILES - uploadedFilesQueue.length));
+    let quotaSlots = Infinity;
+    if(!isPro()){
+      const totalDocs = await totalDocumentCount();
+      quotaSlots = Math.max(0, FREE_LIMITS.documents - totalDocs);
+      if(quotaSlots <= 0){
+        alert(quotaMessage('tài liệu', totalDocs, FREE_LIMITS.documents));
+        return;
+      }
+    }
+    const validFiles = candidates.filter(f => f.size <= MAX_FILE_SIZE).slice(0, Math.min(Math.max(0, MAX_FILES - uploadedFilesQueue.length), quotaSlots));
     if(validFiles.length === 0){
       alert("Không có tài liệu hợp lệ. Hỗ trợ PDF, JPG/JPEG, PNG, WEBP, HEIC/HEIF; tối đa 10 file, mỗi file ≤ 20 MB.");
       return;
@@ -1227,6 +1405,7 @@ function renderGenerateForm(){
     }
     await saveLessonSources(currentLessonId, uploadedFilesQueue);
     renderQueueList();
+    updateQuotaUI();
   }
 
   function appendPastedText(value){
@@ -1235,7 +1414,11 @@ function renderGenerateForm(){
     const current = textarea.value.trim();
     textarea.value = current ? `${current}\n\n${pasted}` : pasted;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    if(pasteSourceState) pasteSourceState.textContent = `✓ Đã dán ${pasted.length.toLocaleString('vi-VN')} ký tự.`;
+    if(pasteSourceState){
+      pasteSourceState.classList.add('has-text');
+      pasteSourceState.textContent = `✓ Nội dung đã dán:
+${pasted}`;
+    }
     return true;
   }
 
@@ -1260,7 +1443,10 @@ function renderGenerateForm(){
       if(pasteSourceBox) pasteSourceBox.classList.add('is-pasting');
       await processFiles(imageFiles);
       if(pasteSourceBox) pasteSourceBox.classList.remove('is-pasting');
-      if(pasteSourceState) pasteSourceState.textContent = `✓ Đã thêm ${imageFiles.length} ảnh từ clipboard.`;
+      if(pasteSourceState){
+        pasteSourceState.classList.remove('has-text');
+        pasteSourceState.textContent = `✓ Đã thêm ${imageFiles.length} ảnh từ clipboard.`;
+      }
       return true;
     }
 
@@ -1337,6 +1523,15 @@ async function generateLessonWithGemini(wrap){
   
   if(uploadedFilesQueue.length === 0 && manualText.length < 50){
     status.textContent = 'Vui lòng nạp ít nhất một tài liệu PDF/ảnh hoặc dán nội dung giáo trình.';
+    status.style.color = 'var(--wrong)';
+    return;
+  }
+
+  let quizReservation = null;
+  try{
+    quizReservation = await reserveMonthlyQuota('quizQuestions', numQuestions);
+  }catch(err){
+    status.textContent = err.message || 'Đã đạt giới hạn trắc nghiệm của gói Free.';
     status.style.color = 'var(--wrong)';
     return;
   }
@@ -1438,6 +1633,10 @@ YÊU CẦU:
       q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 &&
       Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
     );
+    if(quizReservation?.reserved && parsed.questions.length < numQuestions){
+      await refundMonthlyQuota('quizQuestions', numQuestions - parsed.questions.length);
+      quizReservation.amount = parsed.questions.length;
+    }
 
     const lessonMeta = (toc.lessonsBySubject[currentSubjectId] || []).find(l => l.id === currentLessonId);
     const lessonObj = {
@@ -1463,6 +1662,10 @@ YÊU CẦU:
     renderMain();
   }catch(err){
     console.error(err);
+    if(quizReservation?.reserved && quizReservation.amount){
+      await refundMonthlyQuota('quizQuestions', quizReservation.amount);
+      quizReservation.amount = 0;
+    }
     status.style.color = 'var(--wrong)';
     status.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo nội dung. Vui lòng kiểm tra lại mã API Key.');
     btn.disabled = false;
@@ -1477,6 +1680,14 @@ async function regenerateOnlyQuiz(count, level){
     return;
   }
   if(!currentLesson) return;
+
+  let quizReservation = null;
+  try{
+    quizReservation = await reserveMonthlyQuota('quizQuestions', count);
+  }catch(err){
+    alert(err.message || 'Đã đạt giới hạn trắc nghiệm của gói Free.');
+    return;
+  }
 
   const statusEl = document.getElementById('quizRegenStatus');
   const regenBtn = document.getElementById('regenQuizBtn');
@@ -1616,6 +1827,10 @@ YÊU CẦU:
     if(cleanQuestions.length === 0){
       throw new Error('Không nhận được câu hỏi hợp lệ từ Gemini.');
     }
+    if(quizReservation?.reserved && cleanQuestions.length < count){
+      await refundMonthlyQuota('quizQuestions', count - cleanQuestions.length);
+      quizReservation.amount = cleanQuestions.length;
+    }
 
     currentLesson.questions = cleanQuestions.map(q => ({
       id: uid(),
@@ -1631,6 +1846,10 @@ YÊU CẦU:
     quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
     renderMain();
   } catch(err) {
+    if(quizReservation?.reserved && quizReservation.amount){
+      await refundMonthlyQuota('quizQuestions', quizReservation.amount);
+      quizReservation.amount = 0;
+    }
     console.error('regenerateOnlyQuiz error:', err);
     const code = err?.httpStatus ? `HTTP ${err.httpStatus}: ` : '';
     setQuizStatus(`❌ ${code}${toNFC(err.message || 'Không thể tạo mới câu hỏi.')}`, true);
@@ -1987,6 +2206,14 @@ async function askAiKnowledge(){
 
   const askBtn = modal.querySelector('#aiKnowledgeAsk');
   const answerEl = modal.querySelector('#aiKnowledgeAnswer');
+  let aiReservation = null;
+  try{
+    aiReservation = await reserveMonthlyQuota('aiQuestions', 1);
+  }catch(err){
+    answerEl.classList.add('show');
+    answerEl.textContent = err.message || 'Đã đạt giới hạn Hỏi AI của gói Free.';
+    return;
+  }
   askBtn.disabled = true;
   answerEl.classList.add('show');
   answerEl.innerHTML = '<span class="loader"><span class="spinner"></span> AI đang trả lời...</span>';
@@ -2052,6 +2279,7 @@ YÊU CẦU:
     renderAiKnowledgeHistory(modal, topic);
   }catch(err){
     console.error(err);
+    if(aiReservation?.reserved) await refundMonthlyQuota('aiQuestions', 1);
     answerEl.textContent = 'Lỗi: ' + (err.message || 'Không thể hỏi AI lúc này.');
   }finally{
     askBtn.disabled = false;
