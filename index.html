@@ -1019,6 +1019,7 @@ async function deleteSavedLessonSources(lessonId){
 
 let adminSelectedUser = null;
 let adminAllUsers = [];
+let adminSearchTerm = '';
 
 function daysRemaining(value){
   const ms = proUntilMillis(value);
@@ -1099,24 +1100,47 @@ function renderAdminUser(docSnap){
 async function adminFindUserByEmail(){
   const input = document.getElementById('adminSearchEmail');
   const email = (input?.value || '').trim().toLowerCase();
-  if(!email){ setAdminStatus('Nhập email khách hàng.', true); return; }
+
+  // Nếu để trống ô tìm kiếm: quay lại danh sách đầy đủ.
+  if(!email){
+    adminSearchTerm = '';
+    renderAdminUser(null);
+    adminRenderAccountList();
+    setAdminStatus(`Đang hiển thị toàn bộ ${adminAllUsers.length} tài khoản.`);
+    return;
+  }
 
   try{
     setAdminStatus('Đang tìm tài khoản...');
+
+    // Ưu tiên dữ liệu đã tải để tránh Firestore query không cần thiết.
+    const localMatches = adminAllUsers.filter(x => String(x.data?.email || '').trim().toLowerCase() === email);
+    adminSearchTerm = email;
+    adminRenderAccountList();
+
+    if(localMatches.length){
+      const hit = localMatches[0];
+      renderAdminUser({ id: hit.uid, data: ()=>hit.data });
+      setAdminStatus(`Đã tìm thấy ${localMatches.length} tài khoản khớp chính xác email này.`);
+      return;
+    }
+
+    // Fallback: truy vấn Firestore nếu danh sách tại chỗ chưa có email đó.
     const q = await db.collection('users').where('email','==',email).limit(5).get();
     if(q.empty){
-      const localMatch = adminAllUsers.find(x => String(x.data?.email || '').trim().toLowerCase() === email);
-      if(localMatch){
-        renderAdminUser({ id: localMatch.uid, data: ()=>localMatch.data });
-        setAdminStatus('Đã tìm thấy tài khoản.');
-        return;
-      }
       renderAdminUser(null);
+      adminRenderAccountList();
       setAdminStatus('Không tìm thấy tài khoản có email này.', true);
       return;
     }
+
+    const docs = q.docs.map(doc=>({uid:doc.id, data:doc.data() || {}}));
+    docs.forEach(item=>{
+      if(!adminAllUsers.some(x=>x.uid===item.uid)) adminAllUsers.push(item);
+    });
+    adminRenderAccountList();
     renderAdminUser(q.docs[0]);
-    setAdminStatus('Đã tìm thấy tài khoản.');
+    setAdminStatus(`Đã tìm thấy ${docs.length} tài khoản khớp chính xác email này.`);
   }catch(err){
     console.error('adminFindUserByEmail error:', err);
     setAdminStatus('Không thể tìm tài khoản: ' + (err?.message || 'Không xác định'), true);
@@ -1191,6 +1215,10 @@ function adminRenderAccountList(){
   if(!list) return;
 
   let rows = adminAllUsers.slice();
+  // Khi đã nhập email và bấm Tìm, danh sách chỉ hiển thị tài khoản khớp chính xác.
+  if(adminSearchTerm){
+    rows = rows.filter(item => String(item.data?.email || '').trim().toLowerCase() === adminSearchTerm);
+  }
   if(filter !== 'all') rows = rows.filter(item => effectivePlan(item.data) === filter);
 
   rows.sort((a,b)=>{
@@ -1203,7 +1231,9 @@ function adminRenderAccountList(){
 
   if(count) count.textContent = `${rows.length}/${adminAllUsers.length}`;
   if(!rows.length){
-    list.innerHTML = '<div class="admin-empty">Không có tài khoản phù hợp bộ lọc.</div>';
+    list.innerHTML = adminSearchTerm
+      ? '<div class="admin-empty">Không tìm thấy tài khoản khớp email này.</div>'
+      : '<div class="admin-empty">Không có tài khoản phù hợp bộ lọc.</div>';
     return;
   }
 
@@ -1339,6 +1369,15 @@ async function init(){
   adminSearchBtn?.addEventListener('click', adminFindUserByEmail);
   adminSearchEmail?.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') adminFindUserByEmail();
+  });
+  adminSearchEmail?.addEventListener('input', () => {
+    // Xóa nội dung tìm kiếm sẽ tự trở về danh sách đầy đủ.
+    if(!(adminSearchEmail.value || '').trim()){
+      adminSearchTerm = '';
+      renderAdminUser(null);
+      adminRenderAccountList();
+      setAdminStatus(`Đang hiển thị toàn bộ ${adminAllUsers.length} tài khoản.`);
+    }
   });
   grantPro30Btn?.addEventListener('click', adminGrantPro30);
   grantPro90Btn?.addEventListener('click', adminGrantPro90);
