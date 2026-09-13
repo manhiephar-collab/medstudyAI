@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -129,7 +130,7 @@
   .upload-box{border:1.5px dashed rgba(14,165,164,.38);padding:36px 20px;border-radius:16px;text-align:center;background:linear-gradient(135deg,rgba(226,249,247,.66),rgba(238,245,255,.58));margin-bottom:16px;cursor:pointer;transition:.2s ease}.upload-box:hover,.upload-box.dragover{border-color:var(--accent);background:linear-gradient(135deg,rgba(216,248,246,.92),rgba(230,242,255,.85));transform:translateY(-1px)}
   .file-queue{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.file-chip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(240,249,249,.88);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink)}.file-chip .chip-del{cursor:pointer;color:var(--muted);font-weight:bold;padding:0 4px}.file-chip .chip-del:hover{color:var(--wrong)}
   .field{margin-bottom:16px}.field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;font-weight:650}.field textarea{width:100%;min-height:100px;resize:vertical;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72);line-height:1.55;color:var(--ink)}
-  .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:8px;color:var(--correct);font-weight:650;white-space:pre-wrap;word-break:break-word}.paste-edit-wrap{display:none;margin-top:10px}.paste-edit-wrap.show{display:block}.paste-edit-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px;font-weight:750;color:var(--ink)}.paste-edit-actions{display:flex;gap:6px;flex-wrap:wrap}.paste-mini-btn{border:1px solid rgba(14,165,164,.22);background:#fff;color:var(--accent-dark);border-radius:8px;padding:5px 8px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}.paste-mini-btn:hover{background:#e9fbf8}.paste-edit-area{width:100%;min-height:92px;max-height:220px;resize:vertical;box-sizing:border-box;color:var(--ink);font-family:var(--font-main);font-size:12.5px;font-weight:500;line-height:1.55;background:rgba(255,255,255,.78);border:1px solid rgba(14,165,164,.18);border-radius:10px;padding:10px 11px;outline:none}.paste-edit-area:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,165,164,.08)}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
+  .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:8px;color:var(--correct);font-weight:650;white-space:pre-wrap;word-break:break-word}.paste-edit-wrap{display:block;margin-top:10px}.paste-edit-wrap.show{display:block}.paste-edit-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px;font-weight:750;color:var(--ink)}.paste-edit-actions{display:flex;gap:6px;flex-wrap:wrap}.paste-mini-btn{border:1px solid rgba(14,165,164,.22);background:#fff;color:var(--accent-dark);border-radius:8px;padding:5px 8px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}.paste-mini-btn:hover{background:#e9fbf8}.paste-edit-area{width:100%;min-height:92px;max-height:220px;resize:vertical;box-sizing:border-box;color:var(--ink);font-family:var(--font-main);font-size:12.5px;font-weight:500;line-height:1.55;background:rgba(255,255,255,.78);border:1px solid rgba(14,165,164,.18);border-radius:10px;padding:10px 11px;outline:none}.paste-edit-area:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,165,164,.08)}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
   .quiz-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;padding:14px;background:rgba(244,250,251,.66);border:1px solid var(--line);border-radius:14px}.quiz-options-grid label{font-size:12px;color:var(--ink-2);font-weight:650;display:block;margin-bottom:6px}.quiz-options-grid select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.78);font-size:13px;color:var(--ink)}.status-line{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
 
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.48);border:1px solid var(--line);backdrop-filter:blur(12px)}.mindmap-help .hint{font-size:12.5px;color:var(--muted)}
@@ -1897,16 +1898,16 @@ function renderGenerateForm(){
 
     <div class="paste-source-box" id="pasteSourceBox" tabindex="0" role="textbox" aria-label="Dán ảnh chụp màn hình hoặc nội dung chữ">
       <div class="paste-source-title">📋 Dán ảnh chụp màn hình hoặc nội dung chữ</div>
-      <div class="paste-source-hint">Máy tính: bấm vào đây rồi Ctrl+V / ⌘V. Điện thoại: chạm giữ và chọn <strong>Dán</strong>. Ảnh sẽ được thêm như tài liệu; chữ sẽ được đưa vào ô nội dung bên dưới.</div>
+      <div class="paste-source-hint">Bạn có thể <strong>gõ trực tiếp</strong>, dán chữ hoặc dán ảnh chụp màn hình vào đây. Ảnh sẽ được thêm như tài liệu; chữ sẽ được dùng để tạo Mind Map và trắc nghiệm.</div>
       <div class="paste-source-state" id="pasteSourceState"></div>
-      <div class="paste-edit-wrap" id="pasteEditWrap">
+      <div class="paste-edit-wrap show" id="pasteEditWrap">
         <div class="paste-edit-label">
-          <span>✓ Nội dung đã dán — có thể sửa trực tiếp</span>
+          <span>✍️ Nội dung nhập / dán</span>
           <span class="paste-edit-actions">
             <button type="button" class="paste-mini-btn" id="pasteClearBtn">Xóa hết</button>
           </span>
         </div>
-        <textarea class="paste-edit-area" id="pasteEditArea" placeholder="Dán hoặc nhập thêm nội dung tại đây. Bạn có thể thêm, sửa hoặc xóa từng ký tự như ô văn bản bình thường."></textarea>
+        <textarea class="paste-edit-area" id="pasteEditArea" placeholder="Nhập hoặc dán nội dung chữ tại đây..."></textarea>
       </div>
     </div>
 
@@ -2041,8 +2042,8 @@ function renderGenerateForm(){
     const value = pasteEditArea.value;
     textarea.value = value;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    if(pasteEditWrap) pasteEditWrap.classList.toggle('show', !!value.trim());
-    if(pasteSourceState) pasteSourceState.textContent = value.trim() ? '' : '';
+    if(pasteEditWrap) pasteEditWrap.classList.add('show');
+    if(pasteSourceState) pasteSourceState.textContent = '';
   }
 
   function appendPastedText(value){
@@ -2111,12 +2112,13 @@ function renderGenerateForm(){
     if(pasteEditArea) pasteEditArea.value = '';
     textarea.value = '';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    if(pasteEditWrap) pasteEditWrap.classList.remove('show');
+    if(pasteEditWrap) pasteEditWrap.classList.add('show');
     if(pasteSourceState) pasteSourceState.textContent = '';
+    pasteEditArea?.focus();
   });
   pasteSourceBox?.addEventListener('click', (e) => {
-    if(e.target === pasteEditArea || e.target === pasteClearBtn) return;
-    pasteSourceBox.focus();
+    if(e.target === pasteClearBtn) return;
+    if(e.target !== pasteEditArea) pasteEditArea?.focus();
   });
 
   // Không gắn click cho toàn bộ dropArea vì bên trong có các nút riêng, tránh mở hộp chọn file 2 lần trên mobile.
@@ -2956,8 +2958,10 @@ function renderMindmap(container){
         <button id="expandAllBtn">📂 Mở tất cả</button>
         <button id="collapseAllBtn">📁 Thu gọn</button>
         <button id="zoomInBtn" title="Phóng to">＋</button>
-        <button id="zoomOutBtn" title="Thu nhỏ">−</button>
+        <button id="zoomOutBtn" title="Thu nhỏ sâu hơn">−</button>
         <button id="fitBtn">◎ Căn giữa</button>
+        <button id="exportPngBtn" title="Tải Mind Map dạng ảnh PNG">🖼 Ảnh</button>
+        <button id="exportPdfBtn" title="Tải Mind Map dạng PDF">📄 PDF</button>
       </div>
       <svg id="mindmapViewport" role="img" aria-label="Sơ đồ tư duy tương tác"></svg>
     </div>`;
@@ -2999,7 +3003,7 @@ function renderMindmap(container){
   const linkLayer = scene.append('g').attr('class','mm-links');
   const nodeLayer = scene.append('g').attr('class','mm-nodes');
 
-  const zoom = d3.zoom().scaleExtent([0.55, 2.8]).on('zoom', ev => scene.attr('transform', ev.transform));
+  const zoom = d3.zoom().scaleExtent([0.15, 3.2]).on('zoom', ev => scene.attr('transform', ev.transform));
   svg.call(zoom).on('dblclick.zoom', null);
   currentMmInstance = { svg, scene, zoom, root };
 
@@ -3255,7 +3259,7 @@ function renderMindmap(container){
     const width = viewportNode.clientWidth, height = viewportNode.clientHeight;
     const marginX = 70, marginY = 64;
     const fitScale = Math.min((width-marginX*2)/box.width, (height-marginY*2)/box.height);
-    const scale = Math.min(1.05, Math.max(0.72, Math.min(preferredScale, fitScale > 0.72 ? fitScale : preferredScale)));
+    const scale = Math.min(1.05, Math.max(0.18, Math.min(preferredScale, fitScale)));
     const rootNode = root;
     const rootCenterX = rootNode.plotX + rootNode._cardWidth/2;
     const rootCenterY = rootNode.plotY;
@@ -3272,6 +3276,177 @@ function renderMindmap(container){
   update(root);
   setTimeout(() => readableFit(0.9), 90);
 
+
+  function safeMindmapFileName(ext){
+    const base = String(currentLesson?.name || 'mindmap')
+      .normalize('NFC')
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 90) || 'mindmap';
+    return `${base}.${ext}`;
+  }
+
+  function buildExportSvg(){
+    const sceneNode = scene.node();
+    const box = sceneNode.getBBox();
+    if(!box.width || !box.height) throw new Error('Mind Map chưa có nội dung để xuất.');
+
+    const pad = 48;
+    const width = Math.ceil(box.width + pad * 2);
+    const height = Math.ceil(box.height + pad * 2);
+
+    const ns = 'http://www.w3.org/2000/svg';
+    const exportSvg = document.createElementNS(ns, 'svg');
+    exportSvg.setAttribute('xmlns', ns);
+    exportSvg.setAttribute('width', width);
+    exportSvg.setAttribute('height', height);
+    exportSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('x', '0');
+    bg.setAttribute('y', '0');
+    bg.setAttribute('width', width);
+    bg.setAttribute('height', height);
+    bg.setAttribute('fill', '#F4FBFC');
+    exportSvg.appendChild(bg);
+
+    const style = document.createElementNS(ns, 'style');
+    style.textContent = `
+      .mm-link{fill:none;stroke:#86ABB3;stroke-width:1.55px;opacity:.78}
+      .mm-node-card{stroke:rgba(255,255,255,.8);stroke-width:1px}
+      .mm-node.depth-0 .mm-node-card{fill:#247F89}
+      .mm-node.depth-1 .mm-node-card{fill:#4C8BF5}
+      .mm-node.depth-2 .mm-node-card{fill:#2CA59C}
+      .mm-node.depth-3 .mm-node-card{fill:#62B8B0}
+      .mm-node.depth-4 .mm-node-card{fill:#7CBDB8}
+      .mm-node-label{fill:#fff;font-size:13.5px;font-weight:600;font-family:"Be Vietnam Pro",Arial,sans-serif}
+      .mm-node.depth-0 .mm-node-label{font-size:14.5px;font-weight:750}
+      .mm-node.depth-1 .mm-node-label{font-size:13.8px;font-weight:650}
+    `;
+    exportSvg.appendChild(style);
+
+    const clonedScene = sceneNode.cloneNode(true);
+    clonedScene.removeAttribute('transform');
+
+    // File xuất chỉ giữ nội dung Mind Map, bỏ các nút tương tác.
+    clonedScene.querySelectorAll('.mm-hit,.mm-toggle,.mm-ai-ask,title').forEach(el => el.remove());
+    clonedScene.setAttribute('transform', `translate(${pad - box.x},${pad - box.y})`);
+    exportSvg.appendChild(clonedScene);
+
+    return { svg: exportSvg, width, height };
+  }
+
+  async function renderMindmapExportCanvas(){
+    if(document.fonts?.ready){
+      try{ await document.fonts.ready; }catch(_){}
+    }
+
+    const built = buildExportSvg();
+    const serialized = new XMLSerializer().serializeToString(built.svg);
+    const blob = new Blob([serialized], { type:'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    try{
+      const img = await new Promise((resolve,reject)=>{
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('Không thể dựng ảnh Mind Map.'));
+        im.src = url;
+      });
+
+      // Giữ ảnh rõ nhưng giới hạn bộ nhớ trên điện thoại.
+      const maxPixels = 18000000;
+      let scale = Math.max(1.6, Math.min(3.0, 3600 / Math.max(1, built.width)));
+      const projected = built.width * built.height * scale * scale;
+      if(projected > maxPixels){
+        scale = Math.sqrt(maxPixels / (built.width * built.height));
+      }
+      scale = Math.max(1, scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(built.width * scale));
+      canvas.height = Math.max(1, Math.round(built.height * scale));
+
+      const c = canvas.getContext('2d');
+      c.fillStyle = '#F4FBFC';
+      c.fillRect(0,0,canvas.width,canvas.height);
+      c.drawImage(img,0,0,canvas.width,canvas.height);
+      return canvas;
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  async function exportMindmapPng(){
+    const btn = wrap.querySelector('#exportPngBtn');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Đang tạo...';
+    try{
+      const canvas = await renderMindmapExportCanvas();
+      const blob = await new Promise(resolve => canvas.toBlob(resolve,'image/png'));
+      if(!blob) throw new Error('Không thể tạo file ảnh.');
+      downloadBlob(blob, safeMindmapFileName('png'));
+    }catch(err){
+      alert('Không thể tải ảnh Mind Map: ' + (err?.message || err));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = old;
+    }
+  }
+
+  async function exportMindmapPdf(){
+    const btn = wrap.querySelector('#exportPdfBtn');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Đang tạo...';
+    try{
+      const canvas = await renderMindmapExportCanvas();
+      const jsPDF = window.jspdf?.jsPDF;
+      if(!jsPDF) throw new Error('Thư viện PDF chưa tải được. Hãy kiểm tra kết nối mạng rồi thử lại.');
+
+      const landscape = canvas.width >= canvas.height;
+      const pdf = new jsPDF({
+        orientation: landscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a3',
+        compress: true
+      });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const maxW = pageW - margin * 2;
+      const maxH = pageH - margin * 2;
+      const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+      const w = canvas.width * ratio;
+      const h = canvas.height * ratio;
+      const x = (pageW - w) / 2;
+      const y = (pageH - h) / 2;
+
+      const imageData = canvas.toDataURL('image/jpeg', 0.94);
+      pdf.addImage(imageData, 'JPEG', x, y, w, h, undefined, 'FAST');
+      pdf.save(safeMindmapFileName('pdf'));
+    }catch(err){
+      alert('Không thể tải PDF Mind Map: ' + (err?.message || err));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = old;
+    }
+  }
+
   wrap.querySelector('#expandAllBtn').onclick = () => {
     expandRecursively(root);
     update(root);
@@ -3283,8 +3458,10 @@ function renderMindmap(container){
     setTimeout(() => readableFit(0.9), 220);
   };
   wrap.querySelector('#zoomInBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,1.18);
-  wrap.querySelector('#zoomOutBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,.85);
+  wrap.querySelector('#zoomOutBtn').onclick = () => svg.transition().duration(180).call(zoom.scaleBy,.76);
   wrap.querySelector('#fitBtn').onclick = centerCurrent;
+  wrap.querySelector('#exportPngBtn').onclick = exportMindmapPng;
+  wrap.querySelector('#exportPdfBtn').onclick = exportMindmapPdf;
 
   wrap.querySelector('#regenBtn').addEventListener('click', () => {
     // Không xoá dữ liệu bài học ngay. Chỉ mở màn hình quản lý tài liệu.
