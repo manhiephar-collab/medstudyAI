@@ -149,7 +149,14 @@
 
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.48);border:1px solid var(--line);backdrop-filter:blur(12px)}.mindmap-help .hint{font-size:12.5px;color:var(--muted)}
   .mindmap-wrapper{border:1px solid rgba(91,153,163,.18);border-radius:22px;background:linear-gradient(145deg,#F7FCFD,#ECF8F8 52%,#EEF5FF);overflow:hidden;position:relative;box-shadow:0 24px 55px rgba(28,93,106,.12);min-height:720px}.mindmap-wrapper::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 18% 50%,rgba(74,139,245,.10),transparent 34%),radial-gradient(circle at 78% 50%,rgba(14,165,164,.12),transparent 38%)}
-  .mindmap-toolbar{position:absolute;top:14px;right:14px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;background:rgba(255,255,255,.66);backdrop-filter:blur(14px);padding:6px;border-radius:12px;border:1px solid rgba(56,130,139,.16);max-width:calc(100% - 28px);box-shadow:var(--shadow-soft)}.mindmap-toolbar button{background:rgba(244,251,251,.86);color:var(--ink-2);border:1px solid rgba(56,130,139,.12);border-radius:9px;padding:7px 10px;font-size:11.5px;cursor:pointer;font-weight:650}.mindmap-toolbar button:hover{background:var(--accent-soft);color:var(--accent-dark);transform:translateY(-1px)}
+  /* Máy tính: giữ thanh công cụ đầy đủ như phiên bản cũ */
+  .mindmap-tools-fab{display:none}
+  .mindmap-toolbar{position:absolute;top:14px;right:14px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;background:rgba(255,255,255,.66);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:6px;border-radius:12px;border:1px solid rgba(56,130,139,.16);max-width:calc(100% - 28px);box-shadow:var(--shadow-soft)}
+  .mindmap-toolbar.collapsed{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  .mindmap-toolbar button{background:rgba(244,251,251,.86);color:var(--ink-2);border:1px solid rgba(56,130,139,.12);border-radius:9px;padding:7px 10px;font-size:11.5px;cursor:pointer;font-weight:650;white-space:nowrap;height:auto;min-width:0}
+  .mindmap-toolbar button:hover{background:var(--accent-soft);color:var(--accent-dark);transform:translateY(-1px)}
+  .mindmap-toolbar .mm-tool-icon{font-size:inherit;line-height:1}
+  .mindmap-toolbar .mm-tool-label{display:inline}
   #mindmapViewport{width:100%;height:720px;display:block;cursor:grab;touch-action:none;position:relative;z-index:1}#mindmapViewport:active{cursor:grabbing}.mm-link{fill:none;stroke:#86ABB3;stroke-width:1.55px;opacity:.72;vector-effect:non-scaling-stroke}.mm-node{cursor:default}.mm-node-card{stroke:rgba(255,255,255,.7);stroke-width:1px;filter:drop-shadow(0 6px 10px rgba(39,102,113,.13))}.mm-node.depth-0 .mm-node-card{fill:#247F89}.mm-node.depth-1 .mm-node-card{fill:#4C8BF5}.mm-node.depth-2 .mm-node-card{fill:#2CA59C}.mm-node.depth-3 .mm-node-card{fill:#62B8B0}.mm-node.depth-4 .mm-node-card{fill:#7CBDB8}.mm-node-label{fill:#fff;font-size:13.5px;font-weight:550;font-family:var(--font-main);pointer-events:none}.mm-node.depth-0 .mm-node-label{font-size:14.5px;font-weight:750}.mm-node.depth-1 .mm-node-label{font-size:13.8px;font-weight:650}.mm-toggle{cursor:pointer}.mm-toggle circle{fill:#fff;stroke:rgba(36,127,137,.22);stroke-width:1px;filter:drop-shadow(0 3px 5px rgba(29,89,99,.16))}.mm-toggle:hover circle{fill:#E5F7F6}.mm-toggle text{fill:#1B7E85;font-size:12px;font-weight:800;font-family:var(--font-main);text-anchor:middle;dominant-baseline:central;pointer-events:none}.mm-hit{fill:transparent;cursor:pointer}
 
   .quiz-top-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}.q-progress{font-size:13px;color:var(--muted);font-weight:650}.q-text{font-size:16px;margin-bottom:16px;font-weight:700;color:var(--ink-2)}.opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;cursor:pointer;background:rgba(255,255,255,.70);font-size:14px;transition:.15s ease}.opt:hover{border-color:rgba(14,165,164,.45);background:rgba(237,250,249,.82);transform:translateX(2px)}.opt.correct{background:var(--correct-soft);border-color:var(--correct)}.opt.wrong{background:var(--wrong-soft);border-color:var(--wrong)}.opt.disabled{cursor:default}.opt .letter{width:27px;height:27px;border-radius:9px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:11.5px;flex-shrink:0;color:var(--muted);font-weight:750}.opt.correct .letter{background:var(--correct);border-color:var(--correct);color:#fff}.opt.wrong .letter{background:var(--wrong);border-color:var(--wrong);color:#fff}.explain{margin-top:14px;padding:14px 16px;background:rgba(255,246,226,.82);border-radius:12px;font-size:13.5px;border-left:3.5px solid var(--warm);line-height:1.55}.q-nav{display:flex;justify-content:space-between;margin-top:18px}.score-card{text-align:center;padding:42px 20px}.score-num{font-weight:800;font-size:50px;color:var(--accent)}.review-list .rev-item{border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:10px;background:rgba(255,255,255,.66);backdrop-filter:blur(12px)}.tag{font-size:10.5px;padding:4px 8px;border-radius:20px;font-weight:750;display:inline-block;margin-right:6px}.tag.ok{background:var(--correct-soft);color:var(--correct)}.tag.bad{background:var(--wrong-soft);color:var(--wrong)}.hist-item{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border:1px solid var(--line);border-radius:13px;margin-bottom:8px;cursor:pointer;background:rgba(255,255,255,.66);backdrop-filter:blur(12px);transition:.15s ease}.hist-item:hover{border-color:rgba(14,165,164,.42);transform:translateY(-1px);box-shadow:var(--shadow-soft)}
@@ -203,7 +210,7 @@
 .admin-account-actions .btn{padding:6px 8px;font-size:9.5px;border-radius:9px;box-shadow:none}.btn.danger-admin{background:linear-gradient(135deg,#E56A73,#C94D58);color:#fff}.btn.danger-admin:hover{box-shadow:0 8px 18px rgba(217,93,104,.20)}
 .admin-empty{padding:14px 8px;text-align:center;color:var(--muted);font-size:10.5px;border:1px dashed var(--line);border-radius:11px;background:rgba(255,255,255,.55)}
 @media(max-width:520px){.admin-tools{grid-template-columns:1fr}.admin-account-list{max-height:420px}.admin-account-top{align-items:center}}
-@media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
+@media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-tools-fab{display:block;position:absolute;top:10px;right:10px;z-index:22;border:1px solid rgba(56,130,139,.18);background:rgba(255,255,255,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--accent-dark);border-radius:12px;padding:7px 10px;font-size:11.5px;font-weight:800;cursor:pointer;box-shadow:var(--shadow-soft)}.mindmap-toolbar{left:auto;right:10px;top:50px;display:grid;grid-template-columns:repeat(3,44px);gap:6px;max-width:none;padding:7px;background:rgba(255,255,255,.84);border-radius:13px}.mindmap-toolbar.collapsed{opacity:0;visibility:hidden;transform:scale(.94) translateY(-4px);pointer-events:none}.mindmap-toolbar button{width:44px;min-width:44px;height:40px;padding:5px;font-size:11px}.mindmap-toolbar .mm-tool-label{display:none}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
 
 
   /* ===== HỎI AI TỪ MIND MAP ===== */
@@ -3224,14 +3231,15 @@ function renderMindmap(container){
       <button class="btn ghost small" id="regenBtn">📚 Quản lý tài liệu</button>
     </div>
     <div class="mindmap-wrapper" id="mmWrap">
-      <div class="mindmap-toolbar">
-        <button id="expandAllBtn">📂 Mở tất cả</button>
-        <button id="collapseAllBtn">📁 Thu gọn</button>
-        <button id="zoomInBtn" title="Phóng to">＋</button>
-        <button id="zoomOutBtn" title="Thu nhỏ sâu hơn">−</button>
-        <button id="fitBtn">◎ Căn giữa</button>
-        <button id="exportPngBtn" title="Tải Mind Map dạng ảnh PNG">🖼 Ảnh</button>
-        <button id="exportPdfBtn" title="Tải Mind Map dạng PDF">📄 PDF</button>
+      <button class="mindmap-tools-fab" id="mindmapToolsToggle" type="button" aria-expanded="false" title="Mở công cụ Mind Map">⚙ Công cụ</button>
+      <div class="mindmap-toolbar collapsed" id="mindmapToolbar">
+        <button id="expandAllBtn" title="Mở tất cả nhánh" aria-label="Mở tất cả nhánh"><span class="mm-tool-icon">📂</span><span class="mm-tool-label">Mở</span></button>
+        <button id="collapseAllBtn" title="Thu gọn các nhánh" aria-label="Thu gọn các nhánh"><span class="mm-tool-icon">📁</span><span class="mm-tool-label">Thu</span></button>
+        <button id="zoomInBtn" title="Phóng to" aria-label="Phóng to"><span class="mm-tool-icon">＋</span><span class="mm-tool-label"> Phóng to</span></button>
+        <button id="zoomOutBtn" title="Thu nhỏ" aria-label="Thu nhỏ"><span class="mm-tool-icon">−</span><span class="mm-tool-label"> Thu nhỏ</span></button>
+        <button id="fitBtn" title="Căn giữa toàn bộ Mind Map" aria-label="Căn giữa"><span class="mm-tool-icon">◎</span><span class="mm-tool-label"> Căn giữa</span></button>
+        <button id="exportPngBtn" title="Tải Mind Map dạng ảnh PNG" aria-label="Tải ảnh PNG"><span class="mm-tool-icon">🖼</span><span class="mm-tool-label"> Ảnh</span></button>
+        <button id="exportPdfBtn" title="Tải Mind Map dạng PDF" aria-label="Tải PDF"><span class="mm-tool-icon">📄</span><span class="mm-tool-label"> PDF</span></button>
       </div>
       <svg id="mindmapViewport" role="img" aria-label="Sơ đồ tư duy tương tác"></svg>
     </div>`;
@@ -3692,6 +3700,35 @@ function renderMindmap(container){
       btn.textContent = oldText;
     }
   }
+
+
+  const mmToolbar = wrap.querySelector('#mindmapToolbar');
+  const mmToolsToggle = wrap.querySelector('#mindmapToolsToggle');
+
+  function setMindmapToolsOpen(open){
+    mmToolbar?.classList.toggle('collapsed', !open);
+    if(mmToolsToggle){
+      mmToolsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mmToolsToggle.textContent = open ? '✕ Đóng' : '⚙ Công cụ';
+    }
+    try{ localStorage.setItem('medstudy_mm_tools_open', open ? '1' : '0'); }catch(_){}
+  }
+
+  // Máy tính luôn hiện thanh công cụ đầy đủ như cũ.
+  // Chỉ điện thoại dùng chế độ Mở/Đóng gọn.
+  const isPhoneToolbar = window.matchMedia('(max-width: 520px)').matches;
+  let toolsOpen = !isPhoneToolbar;
+  if(isPhoneToolbar){
+    try{
+      const saved = localStorage.getItem('medstudy_mm_tools_open');
+      toolsOpen = saved === '1';
+    }catch(_){}
+  }
+  setMindmapToolsOpen(toolsOpen);
+
+  mmToolsToggle?.addEventListener('click', ()=>{
+    setMindmapToolsOpen(mmToolbar?.classList.contains('collapsed'));
+  });
 
   wrap.querySelector('#expandAllBtn').onclick = () => {
     expandRecursively(root);
