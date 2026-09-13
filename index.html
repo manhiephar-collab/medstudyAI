@@ -156,6 +156,24 @@
 .admin-result .meta{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.45}
 .admin-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .admin-status{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45}
+.admin-tools{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.admin-tools select{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 9px;color:var(--ink-2);font:inherit;font-size:10.5px}
+.admin-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px}
+.admin-list-head strong{font-size:11px;color:var(--ink-2)}
+.admin-list-count{font-size:10px;color:var(--muted)}
+.admin-account-list{margin-top:7px;display:flex;flex-direction:column;gap:7px;max-height:390px;overflow:auto;padding-right:2px}
+.admin-account-card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 10px}
+.admin-account-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.admin-account-email{font-size:11px;font-weight:800;color:var(--ink-2);word-break:break-word;min-width:0}
+.admin-account-meta{font-size:9.8px;color:var(--muted);margin-top:4px;line-height:1.4;word-break:break-word}
+.admin-account-expiry{margin-top:5px;font-size:10px;font-weight:700}
+.admin-account-expiry.pro-active{color:var(--correct)}
+.admin-account-expiry.pro-expired{color:var(--wrong)}
+.admin-account-expiry.free{color:var(--muted)}
+.admin-account-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.admin-account-actions .btn{padding:6px 8px;font-size:9.5px;border-radius:9px;box-shadow:none}
+.admin-empty{padding:14px 8px;text-align:center;color:var(--muted);font-size:10.5px;border:1px dashed var(--line);border-radius:11px;background:rgba(255,255,255,.55)}
+@media(max-width:520px){.admin-tools{grid-template-columns:1fr}.admin-account-list{max-height:420px}.admin-account-top{align-items:center}}
 @media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
 
 
@@ -262,18 +280,39 @@
             <span class="plan-badge pro">ADMIN</span>
           </div>
           <div class="admin-search-row">
-            <input type="email" id="adminSearchEmail" placeholder="Email khách hàng">
+            <input type="email" id="adminSearchEmail" placeholder="Tìm email khách hàng">
             <button class="btn small" id="adminSearchBtn" type="button">Tìm</button>
           </div>
           <div id="adminResult" class="admin-result">
             <div id="adminResultEmail" class="email"></div>
             <div id="adminResultMeta" class="meta"></div>
             <div class="admin-actions">
-              <button class="btn small warm" id="grantPro30Btn" type="button">Cấp Pro 30 ngày</button>
+              <button class="btn small warm" id="grantPro30Btn" type="button">+30 ngày</button>
+              <button class="btn small warm" id="grantPro90Btn" type="button">+90 ngày</button>
               <button class="btn small" id="cancelProBtn" type="button">Hủy Pro</button>
             </div>
           </div>
-          <div id="adminStatus" class="admin-status">Tìm tài khoản bằng email để cấp/hủy Pro.</div>
+
+          <div class="admin-tools">
+            <select id="adminPlanFilter" aria-label="Lọc gói">
+              <option value="all">Tất cả tài khoản</option>
+              <option value="free">Chỉ Free</option>
+              <option value="pro">Chỉ Pro</option>
+            </select>
+            <select id="adminSortOrder" aria-label="Sắp xếp tài khoản">
+              <option value="expiry-asc">Hết hạn sớm nhất</option>
+              <option value="expiry-desc">Hết hạn muộn nhất</option>
+              <option value="email-asc">Email A → Z</option>
+            </select>
+          </div>
+          <div class="admin-list-head">
+            <strong>Danh sách tài khoản</strong>
+            <span id="adminListCount" class="admin-list-count"></span>
+          </div>
+          <div id="adminAccountList" class="admin-account-list">
+            <div class="admin-empty">Đang tải danh sách tài khoản…</div>
+          </div>
+          <div id="adminStatus" class="admin-status">Bạn có thể tìm email hoặc quản lý trực tiếp trong danh sách bên dưới.</div>
         </div>
       </div>
 
@@ -979,6 +1018,32 @@ async function deleteSavedLessonSources(lessonId){
 
 
 let adminSelectedUser = null;
+let adminAllUsers = [];
+
+function daysRemaining(value){
+  const ms = proUntilMillis(value);
+  if(!ms) return null;
+  return Math.max(0, Math.ceil((ms - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+function effectivePlan(data){ return cloudPlanIsActive(data) ? 'pro' : 'free'; }
+function expirySortValue(data, direction='asc'){
+  const active = cloudPlanIsActive(data);
+  const ms = proUntilMillis(data?.proUntil);
+  if(active && !ms) return direction === 'asc' ? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+  if(ms) return ms;
+  return direction === 'asc' ? Number.MAX_SAFE_INTEGER - 1 : -1;
+}
+function proRemainingLabel(data){
+  if(!data || data.plan !== 'pro') return 'FREE';
+  const ms = proUntilMillis(data.proUntil);
+  if(!ms) return 'PRO • Không thời hạn';
+  const days = daysRemaining(data.proUntil);
+  if(ms <= Date.now()) return `PRO đã hết hạn • ${formatProUntil(data.proUntil)}`;
+  return `PRO còn ${days} ngày • đến ${formatProUntil(data.proUntil)}`;
+}
+function escapeAdminHtml(value){
+  return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
 
 async function currentUserIsAdmin(){
   const user = auth?.currentUser;
@@ -997,7 +1062,12 @@ async function refreshAdminPanel(){
   if(!panel) return;
   const allowed = await currentUserIsAdmin();
   panel.style.display = allowed ? 'block' : 'none';
-  if(!allowed) adminSelectedUser = null;
+  if(!allowed){
+    adminSelectedUser = null;
+    adminAllUsers = [];
+    return;
+  }
+  await adminLoadAllUsers();
 }
 
 function setAdminStatus(msg, isErr=false){
@@ -1022,7 +1092,7 @@ function renderAdminUser(docSnap){
   const active = cloudPlanIsActive(data);
   emailEl.textContent = data.email || '(Không có email)';
   const expiry = data.plan === 'pro' ? formatProUntil(data.proUntil) : '—';
-  metaEl.textContent = `UID: ${docSnap.id} • Gói hiện tại: ${active ? 'PRO' : 'FREE'} • Hạn Pro: ${expiry}`;
+  metaEl.textContent = `UID: ${docSnap.id} • ${proRemainingLabel(data)}`;
   box.style.display='block';
 }
 
@@ -1035,6 +1105,12 @@ async function adminFindUserByEmail(){
     setAdminStatus('Đang tìm tài khoản...');
     const q = await db.collection('users').where('email','==',email).limit(5).get();
     if(q.empty){
+      const localMatch = adminAllUsers.find(x => String(x.data?.email || '').trim().toLowerCase() === email);
+      if(localMatch){
+        renderAdminUser({ id: localMatch.uid, data: ()=>localMatch.data });
+        setAdminStatus('Đã tìm thấy tài khoản.');
+        return;
+      }
       renderAdminUser(null);
       setAdminStatus('Không tìm thấy tài khoản có email này.', true);
       return;
@@ -1047,18 +1123,18 @@ async function adminFindUserByEmail(){
   }
 }
 
-async function adminGrantPro30(){
-  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
-  const ref = db.collection('users').doc(adminSelectedUser.uid);
+async function adminGrantProDaysForUid(uid, days){
+  if(!uid){ setAdminStatus('Không xác định được tài khoản.', true); return; }
+  const ref = db.collection('users').doc(uid);
   try{
-    setAdminStatus('Đang cấp Pro...');
+    setAdminStatus(`Đang gia hạn Pro ${days} ngày...`);
     await db.runTransaction(async tx=>{
       const snap = await tx.get(ref);
       if(!snap.exists) throw new Error('Tài khoản không còn tồn tại.');
       const data = snap.data() || {};
       const oldUntil = proUntilMillis(data.proUntil);
       const base = oldUntil && oldUntil > Date.now() ? oldUntil : Date.now();
-      const nextUntil = new Date(base + 30 * 24 * 60 * 60 * 1000);
+      const nextUntil = new Date(base + days * 24 * 60 * 60 * 1000);
       tx.update(ref, {
         plan: 'pro',
         proUntil: firebase.firestore.Timestamp.fromDate(nextUntil),
@@ -1066,17 +1142,26 @@ async function adminGrantPro30(){
       });
     });
     const fresh = await ref.get();
-    renderAdminUser(fresh);
-    setAdminStatus(`✅ Đã cấp/ gia hạn Pro 30 ngày đến ${formatProUntil(fresh.data()?.proUntil)}.`);
+    if(adminSelectedUser?.uid === uid) renderAdminUser(fresh);
+    await adminLoadAllUsers(false);
+    setAdminStatus(`✅ Đã gia hạn Pro ${days} ngày đến ${formatProUntil(fresh.data()?.proUntil)}.`);
   }catch(err){
-    console.error('adminGrantPro30 error:', err);
-    setAdminStatus('Cấp Pro thất bại: ' + (err?.message || 'Không xác định'), true);
+    console.error('adminGrantProDaysForUid error:', err);
+    setAdminStatus('Gia hạn Pro thất bại: ' + (err?.message || 'Không xác định'), true);
   }
 }
-
-async function adminCancelPro(){
+async function adminGrantPro30(){
   if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
-  const ref = db.collection('users').doc(adminSelectedUser.uid);
+  await adminGrantProDaysForUid(adminSelectedUser.uid, 30);
+}
+async function adminGrantPro90(){
+  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
+  await adminGrantProDaysForUid(adminSelectedUser.uid, 90);
+}
+
+async function adminCancelProForUid(uid){
+  if(!uid){ setAdminStatus('Không xác định được tài khoản.', true); return; }
+  const ref = db.collection('users').doc(uid);
   try{
     setAdminStatus('Đang hủy Pro...');
     await ref.update({
@@ -1085,12 +1170,90 @@ async function adminCancelPro(){
       updatedAt: Date.now()
     });
     const fresh = await ref.get();
-    renderAdminUser(fresh);
+    if(adminSelectedUser?.uid === uid) renderAdminUser(fresh);
+    await adminLoadAllUsers(false);
     setAdminStatus('✅ Đã hủy Pro. Tài khoản sẽ trở về Free khi đồng bộ/tải lại.');
   }catch(err){
-    console.error('adminCancelPro error:', err);
+    console.error('adminCancelProForUid error:', err);
     setAdminStatus('Hủy Pro thất bại: ' + (err?.message || 'Không xác định'), true);
   }
+}
+async function adminCancelPro(){
+  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
+  await adminCancelProForUid(adminSelectedUser.uid);
+}
+
+function adminRenderAccountList(){
+  const list = document.getElementById('adminAccountList');
+  const count = document.getElementById('adminListCount');
+  const filter = document.getElementById('adminPlanFilter')?.value || 'all';
+  const sort = document.getElementById('adminSortOrder')?.value || 'expiry-asc';
+  if(!list) return;
+
+  let rows = adminAllUsers.slice();
+  if(filter !== 'all') rows = rows.filter(item => effectivePlan(item.data) === filter);
+
+  rows.sort((a,b)=>{
+    if(sort === 'email-asc') return String(a.data.email||'').localeCompare(String(b.data.email||''), 'vi');
+    const dir = sort === 'expiry-desc' ? 'desc' : 'asc';
+    const av = expirySortValue(a.data, dir);
+    const bv = expirySortValue(b.data, dir);
+    return sort === 'expiry-desc' ? bv-av : av-bv;
+  });
+
+  if(count) count.textContent = `${rows.length}/${adminAllUsers.length}`;
+  if(!rows.length){
+    list.innerHTML = '<div class="admin-empty">Không có tài khoản phù hợp bộ lọc.</div>';
+    return;
+  }
+
+  list.innerHTML = rows.map(item=>{
+    const d = item.data || {};
+    const active = cloudPlanIsActive(d);
+    const ms = proUntilMillis(d.proUntil);
+    const expiryClass = active ? 'pro-active' : (d.plan === 'pro' && ms ? 'pro-expired' : 'free');
+    const badgeClass = active ? 'plan-badge pro' : 'plan-badge';
+    const badgeText = active ? 'PRO' : 'FREE';
+    const remain = proRemainingLabel(d);
+    return `<div class="admin-account-card" data-admin-uid="${escapeAdminHtml(item.uid)}">
+      <div class="admin-account-top">
+        <div class="admin-account-email">${escapeAdminHtml(d.email || '(Không có email)')}</div>
+        <span class="${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="admin-account-meta">UID: ${escapeAdminHtml(item.uid)}</div>
+      <div class="admin-account-expiry ${expiryClass}">${escapeAdminHtml(remain)}</div>
+      <div class="admin-account-actions">
+        <button class="btn small warm" type="button" data-admin-action="30" data-uid="${escapeAdminHtml(item.uid)}">+30 ngày</button>
+        <button class="btn small warm" type="button" data-admin-action="90" data-uid="${escapeAdminHtml(item.uid)}">+90 ngày</button>
+        <button class="btn small" type="button" data-admin-action="cancel" data-uid="${escapeAdminHtml(item.uid)}">Hủy Pro</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function adminLoadAllUsers(showStatus=true){
+  const list = document.getElementById('adminAccountList');
+  try{
+    if(showStatus) setAdminStatus('Đang tải danh sách tài khoản...');
+    if(list && !adminAllUsers.length) list.innerHTML='<div class="admin-empty">Đang tải danh sách tài khoản…</div>';
+    const snap = await db.collection('users').get();
+    adminAllUsers = snap.docs.map(doc=>({uid: doc.id, data: doc.data() || {}}));
+    adminRenderAccountList();
+    if(showStatus) setAdminStatus(`Đã tải ${adminAllUsers.length} tài khoản.`);
+  }catch(err){
+    console.error('adminLoadAllUsers error:', err);
+    if(list) list.innerHTML='<div class="admin-empty">Không tải được danh sách tài khoản.</div>';
+    setAdminStatus('Không tải được danh sách: ' + (err?.message || 'Không xác định'), true);
+  }
+}
+
+function adminSelectUserFromList(uid){
+  const found = adminAllUsers.find(x=>x.uid===uid);
+  if(!found) return;
+  renderAdminUser({ id: found.uid, data: ()=>found.data });
+  const input = document.getElementById('adminSearchEmail');
+  if(input) input.value = found.data.email || '';
+  document.getElementById('adminResult')?.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 async function init(){
@@ -1110,7 +1273,11 @@ async function init(){
   const adminSearchEmail = document.getElementById('adminSearchEmail');
   const adminSearchBtn = document.getElementById('adminSearchBtn');
   const grantPro30Btn = document.getElementById('grantPro30Btn');
+  const grantPro90Btn = document.getElementById('grantPro90Btn');
   const cancelProBtn = document.getElementById('cancelProBtn');
+  const adminPlanFilter = document.getElementById('adminPlanFilter');
+  const adminSortOrder = document.getElementById('adminSortOrder');
+  const adminAccountList = document.getElementById('adminAccountList');
 
   function setAuthStatus(msg, isErr=false){
     if(!authStatus) return;
@@ -1174,7 +1341,23 @@ async function init(){
     if(e.key === 'Enter') adminFindUserByEmail();
   });
   grantPro30Btn?.addEventListener('click', adminGrantPro30);
+  grantPro90Btn?.addEventListener('click', adminGrantPro90);
   cancelProBtn?.addEventListener('click', adminCancelPro);
+  adminPlanFilter?.addEventListener('change', adminRenderAccountList);
+  adminSortOrder?.addEventListener('change', adminRenderAccountList);
+  adminAccountList?.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-admin-action]');
+    if(btn){
+      const uid = btn.dataset.uid;
+      const action = btn.dataset.adminAction;
+      if(action === '30') await adminGrantProDaysForUid(uid, 30);
+      else if(action === '90') await adminGrantProDaysForUid(uid, 90);
+      else if(action === 'cancel') await adminCancelProForUid(uid);
+      return;
+    }
+    const card = e.target.closest('[data-admin-uid]');
+    if(card) adminSelectUserFromList(card.dataset.adminUid);
+  });
 
   auth?.onAuthStateChanged(async user => {
     if(user){
