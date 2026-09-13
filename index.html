@@ -95,6 +95,20 @@
   .api-box label{font-size:12px;color:var(--ink-2);display:block;margin-bottom:7px;font-weight:700;}
   .api-input-wrap{display:flex;gap:7px;margin-bottom:7px;}
   .api-box input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:12px;background:rgba(255,255,255,.74);color:var(--ink);}
+  .password-wrap{position:relative;margin-bottom:7px}
+  .password-wrap input{width:100%;padding-right:42px!important;margin-bottom:0!important}
+  .password-eye{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;padding:5px 7px;border-radius:8px;line-height:1}
+  .password-eye:hover{background:rgba(14,165,164,.08);color:var(--accent-dark)}
+  .change-password-box{display:none;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(244,250,251,.72)}
+  .change-password-box.show{display:block}
+  .change-password-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .password-status{font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+  .forgot-password-link{margin-top:7px;border:0;background:transparent;color:var(--accent-dark);font:inherit;font-size:11px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px}
+  .forgot-password-link:hover{color:var(--accent)}
+  .forgot-password-box{display:none;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(244,250,251,.72)}
+  .forgot-password-box.show{display:block}
+  .forgot-password-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .forgot-password-status{font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.45}
   .api-box a{display:block;font-size:11px;color:var(--accent-dark);margin-top:5px;text-decoration:none;font-weight:600;}
   .api-box a:hover{text-decoration:underline}.sync-status{font-size:11.5px;color:var(--muted);margin-top:7px;font-weight:600;min-height:16px;}
 
@@ -269,15 +283,51 @@
         <label>Tài khoản MedStudy AI:</label>
         <div id="authLoggedOut">
           <input type="email" id="authEmail" placeholder="Email" autocomplete="email" style="margin-bottom:7px;">
-          <input type="password" id="authPassword" placeholder="Mật khẩu (ít nhất 6 ký tự)" autocomplete="current-password" style="margin-bottom:7px;">
+          <div class="password-wrap">
+            <input type="password" id="authPassword" placeholder="Mật khẩu (ít nhất 6 ký tự)" autocomplete="current-password">
+            <button class="password-eye" id="authPasswordEye" type="button" aria-label="Hiện mật khẩu" title="Hiện/ẩn mật khẩu">👁</button>
+          </div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;">
             <button class="btn small" id="loginBtn" type="button">Đăng nhập</button>
             <button class="btn small" id="registerBtn" type="button">Đăng ký</button>
           </div>
+          <button class="forgot-password-link" id="forgotPasswordToggleBtn" type="button">Quên mật khẩu?</button>
+
+          <div id="forgotPasswordBox" class="forgot-password-box">
+            <div style="font-size:11px;font-weight:750;color:var(--ink-2);margin-bottom:6px;">Khôi phục mật khẩu</div>
+            <input type="email" id="forgotPasswordEmail" placeholder="Email đã đăng ký" autocomplete="email" style="width:100%;margin-bottom:0;">
+            <div class="forgot-password-actions">
+              <button class="btn small" id="sendResetEmailBtn" type="button">Gửi liên kết đặt lại mật khẩu</button>
+              <button class="btn small ghost" id="cancelForgotPasswordBtn" type="button">Hủy</button>
+            </div>
+            <div id="forgotPasswordStatus" class="forgot-password-status"></div>
+          </div>
         </div>
         <div id="authLoggedIn" style="display:none;">
           <div id="authUserLine" style="font-size:12px;color:var(--muted);margin-bottom:8px;word-break:break-word;"></div>
-          <button class="btn small" id="logoutBtn" type="button">Đăng xuất</button>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button class="btn small" id="logoutBtn" type="button">Đăng xuất</button>
+            <button class="btn small ghost" id="toggleChangePasswordBtn" type="button">Đổi mật khẩu</button>
+          </div>
+          <div id="changePasswordBox" class="change-password-box">
+            <div class="password-wrap">
+              <input type="password" id="currentPassword" placeholder="Mật khẩu hiện tại" autocomplete="current-password">
+              <button class="password-eye" type="button" data-toggle-password="currentPassword" aria-label="Hiện mật khẩu">👁</button>
+            </div>
+            <div class="password-wrap">
+              <input type="password" id="newPassword" placeholder="Mật khẩu mới (ít nhất 6 ký tự)" autocomplete="new-password">
+              <button class="password-eye" type="button" data-toggle-password="newPassword" aria-label="Hiện mật khẩu">👁</button>
+            </div>
+            <div class="password-wrap">
+              <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password">
+              <button class="password-eye" type="button" data-toggle-password="confirmNewPassword" aria-label="Hiện mật khẩu">👁</button>
+            </div>
+            <div class="change-password-actions">
+              <button class="btn small" id="changePasswordBtn" type="button">Lưu mật khẩu mới</button>
+              <button class="btn small ghost" id="cancelChangePasswordBtn" type="button">Hủy</button>
+            </div>
+            <div id="passwordStatus" class="password-status"></div>
+          </div>
         </div>
         <div id="authStatus" style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.45;"></div>
         <div id="planQuotaBox" class="plan-quota-box collapsed" style="display:none;">
@@ -456,6 +506,127 @@ try {
 } catch (err) {
   console.error('Firebase init error:', err);
   setTimeout(() => setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true), 0);
+}
+
+
+function setPasswordVisible(input, button, visible){
+  if(!input || !button) return;
+  input.type = visible ? 'text' : 'password';
+  button.textContent = visible ? '🙈' : '👁';
+  button.setAttribute('aria-label', visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+}
+function bindPasswordEye(button, input){
+  if(!button || !input) return;
+  button.addEventListener('click', ()=>setPasswordVisible(input, button, input.type === 'password'));
+}
+function resetChangePasswordForm(){
+  ['currentPassword','newPassword','confirmNewPassword'].forEach(id=>{
+    const input=document.getElementById(id);
+    if(input) input.value='';
+  });
+  document.querySelectorAll('#changePasswordBox .password-eye').forEach(btn=>{
+    const input=document.getElementById(btn.dataset.togglePassword);
+    if(input) setPasswordVisible(input,btn,false);
+  });
+  const st=document.getElementById('passwordStatus');
+  if(st){st.textContent='';st.style.color='var(--muted)';}
+}
+
+function resetForgotPasswordForm(){
+  const email = document.getElementById('forgotPasswordEmail');
+  const status = document.getElementById('forgotPasswordStatus');
+  if(email) email.value = '';
+  if(status){
+    status.textContent = '';
+    status.style.color = 'var(--muted)';
+  }
+}
+
+async function sendPasswordReset(){
+  const emailInput = document.getElementById('forgotPasswordEmail');
+  const status = document.getElementById('forgotPasswordStatus');
+  const btn = document.getElementById('sendResetEmailBtn');
+  const email = String(emailInput?.value || '').trim();
+
+  const setStatus = (msg, err=false)=>{
+    if(!status) return;
+    status.textContent = msg;
+    status.style.color = err ? 'var(--wrong)' : 'var(--correct)';
+  };
+
+  if(!email){
+    setStatus('Vui lòng nhập email đã đăng ký.', true);
+    return;
+  }
+
+  try{
+    if(btn){
+      btn.disabled = true;
+      btn.textContent = 'Đang gửi...';
+    }
+
+    await auth.sendPasswordResetEmail(email);
+
+    // Cố ý dùng thông báo trung tính để tránh lộ email có tồn tại trong hệ thống hay không.
+    setStatus('✅ Nếu email này đã được đăng ký, liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra Hộp thư đến và Spam.');
+  }catch(err){
+    console.error('sendPasswordReset error:', err);
+
+    let msg = 'Không thể gửi email đặt lại mật khẩu.';
+    if(err?.code === 'auth/invalid-email'){
+      msg = 'Địa chỉ email không hợp lệ.';
+    }else if(err?.code === 'auth/too-many-requests'){
+      msg = 'Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau.';
+    }else if(err?.code === 'auth/network-request-failed'){
+      msg = 'Không thể kết nối Firebase. Vui lòng kiểm tra Internet.';
+    }else if(err?.code === 'auth/unauthorized-continue-uri'){
+      msg = 'Tên miền hiện tại chưa được cho phép trong Firebase Authentication.';
+    }else if(err?.code === 'auth/operation-not-allowed'){
+      msg = 'Chức năng Email/Password chưa được bật trong Firebase Authentication.';
+    }
+    setStatus('❌ ' + msg, true);
+  }finally{
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = 'Gửi liên kết đặt lại mật khẩu';
+    }
+  }
+}
+
+async function changeCurrentUserPassword(){
+  const user=auth?.currentUser;
+  const currentPassword=document.getElementById('currentPassword')?.value||'';
+  const newPassword=document.getElementById('newPassword')?.value||'';
+  const confirmNewPassword=document.getElementById('confirmNewPassword')?.value||'';
+  const status=document.getElementById('passwordStatus');
+  const btn=document.getElementById('changePasswordBtn');
+  const setStatus=(msg,err=false)=>{
+    if(status){status.textContent=msg;status.style.color=err?'var(--wrong)':'var(--correct)';}
+  };
+  if(!user?.email){setStatus('Không xác định được tài khoản email hiện tại.',true);return;}
+  if(!currentPassword){setStatus('Vui lòng nhập mật khẩu hiện tại.',true);return;}
+  if(newPassword.length<6){setStatus('Mật khẩu mới phải có ít nhất 6 ký tự.',true);return;}
+  if(newPassword!==confirmNewPassword){setStatus('Mật khẩu nhập lại không khớp.',true);return;}
+  if(newPassword===currentPassword){setStatus('Mật khẩu mới phải khác mật khẩu hiện tại.',true);return;}
+  try{
+    if(btn){btn.disabled=true;btn.textContent='Đang đổi...';}
+    setStatus('Đang xác thực mật khẩu hiện tại...');
+    const credential=firebase.auth.EmailAuthProvider.credential(user.email,currentPassword);
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPassword);
+    resetChangePasswordForm();
+    setStatus('✅ Đổi mật khẩu thành công.');
+  }catch(err){
+    console.error('changeCurrentUserPassword error:',err);
+    let msg=err?.message||'Không thể đổi mật khẩu.';
+    if(err?.code==='auth/wrong-password'||err?.code==='auth/invalid-credential') msg='Mật khẩu hiện tại không đúng.';
+    else if(err?.code==='auth/weak-password') msg='Mật khẩu mới quá yếu. Hãy dùng ít nhất 6 ký tự.';
+    else if(err?.code==='auth/too-many-requests') msg='Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.';
+    else if(err?.code==='auth/requires-recent-login') msg='Phiên đăng nhập đã cũ. Hãy đăng xuất, đăng nhập lại rồi đổi mật khẩu.';
+    setStatus('❌ '+msg,true);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Lưu mật khẩu mới';}
+  }
 }
 
 function setSyncMsg(msg, isErr = false) {
@@ -1488,9 +1659,19 @@ async function init(){
 
   const authEmail = document.getElementById('authEmail');
   const authPassword = document.getElementById('authPassword');
+  const authPasswordEye = document.getElementById('authPasswordEye');
   const loginBtn = document.getElementById('loginBtn');
   const registerBtn = document.getElementById('registerBtn');
   const logoutBtn = document.getElementById('logoutBtn');
+  const forgotPasswordToggleBtn = document.getElementById('forgotPasswordToggleBtn');
+  const forgotPasswordBox = document.getElementById('forgotPasswordBox');
+  const forgotPasswordEmail = document.getElementById('forgotPasswordEmail');
+  const sendResetEmailBtn = document.getElementById('sendResetEmailBtn');
+  const cancelForgotPasswordBtn = document.getElementById('cancelForgotPasswordBtn');
+  const toggleChangePasswordBtn = document.getElementById('toggleChangePasswordBtn');
+  const changePasswordBox = document.getElementById('changePasswordBox');
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  const cancelChangePasswordBtn = document.getElementById('cancelChangePasswordBtn');
   const authLoggedOut = document.getElementById('authLoggedOut');
   const authLoggedIn = document.getElementById('authLoggedIn');
   const authUserLine = document.getElementById('authUserLine');
@@ -1540,6 +1721,51 @@ async function init(){
   }
 
   if (savedKey) keyInput.value = savedKey;
+
+
+  bindPasswordEye(authPasswordEye, authPassword);
+
+  forgotPasswordToggleBtn?.addEventListener('click', ()=>{
+    const show = !forgotPasswordBox.classList.contains('show');
+    forgotPasswordBox.classList.toggle('show', show);
+
+    if(show){
+      // Nếu người dùng đã nhập email đăng nhập, sao chép sang ô quên mật khẩu.
+      if(forgotPasswordEmail && !forgotPasswordEmail.value.trim()){
+        forgotPasswordEmail.value = String(authEmail?.value || '').trim();
+      }
+      forgotPasswordEmail?.focus();
+    }else{
+      resetForgotPasswordForm();
+    }
+  });
+
+  cancelForgotPasswordBtn?.addEventListener('click', ()=>{
+    forgotPasswordBox?.classList.remove('show');
+    resetForgotPasswordForm();
+  });
+
+  sendResetEmailBtn?.addEventListener('click', sendPasswordReset);
+
+  forgotPasswordEmail?.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') sendPasswordReset();
+  });
+  document.querySelectorAll('[data-toggle-password]').forEach(btn=>{
+    bindPasswordEye(btn, document.getElementById(btn.dataset.togglePassword));
+  });
+  toggleChangePasswordBtn?.addEventListener('click', ()=>{
+    const show=!changePasswordBox.classList.contains('show');
+    changePasswordBox.classList.toggle('show',show);
+    toggleChangePasswordBtn.textContent=show?'Đóng đổi mật khẩu':'Đổi mật khẩu';
+    if(show) document.getElementById('currentPassword')?.focus();
+    else resetChangePasswordForm();
+  });
+  cancelChangePasswordBtn?.addEventListener('click', ()=>{
+    changePasswordBox?.classList.remove('show');
+    if(toggleChangePasswordBtn) toggleChangePasswordBtn.textContent='Đổi mật khẩu';
+    resetChangePasswordForm();
+  });
+  changePasswordBtn?.addEventListener('click', changeCurrentUserPassword);
 
   loginBtn?.addEventListener('click', async () => {
     try{
@@ -1602,6 +1828,8 @@ async function init(){
       activeUid = user.uid;
       authLoggedOut.style.display='none';
       authLoggedIn.style.display='block';
+      forgotPasswordBox?.classList.remove('show');
+      resetForgotPasswordForm();
       authUserLine.textContent = `✅ ${user.email || 'Đã đăng nhập'}`;
       setAuthStatus('Dữ liệu được gắn với tài khoản này.');
       // Đăng nhập bằng email luôn dùng kho dữ liệu theo Firebase UID.
