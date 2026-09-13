@@ -146,6 +146,16 @@
   .plan-quota-box{margin-top:12px;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:rgba(244,250,251,.72);font-size:11.5px;color:var(--muted);line-height:1.45}
   .plan-quota-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.plan-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font-weight:800;font-size:10.5px;background:#E7F7F5;color:var(--accent-dark);border:1px solid rgba(14,165,164,.20)}.plan-badge.pro{background:#FFF3D9;color:#9a6400;border-color:rgba(245,158,11,.28)}
   .quota-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}.quota-item{display:flex;justify-content:space-between;gap:8px}.quota-item strong{color:var(--ink-2);font-weight:750}.quota-full{color:var(--wrong)!important}.quota-ok{color:var(--correct)!important}.quota-note{margin-top:7px;font-size:10.5px;color:var(--muted)}
+.admin-panel{margin-top:12px;padding:12px;border:1px solid rgba(14,165,164,.18);border-radius:14px;background:rgba(255,255,255,.78)}
+.admin-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.admin-panel-title{font-weight:800;color:var(--ink-2);font-size:12px}
+.admin-search-row{display:flex;gap:7px;align-items:center}
+.admin-search-row input{min-width:0;flex:1}
+.admin-result{margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff;display:none}
+.admin-result .email{font-weight:800;color:var(--ink-2);word-break:break-word}
+.admin-result .meta{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.admin-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.admin-status{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45}
 @media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
 
 
@@ -244,6 +254,26 @@
           </div>
           <div id="quotaGrid" class="quota-grid"></div>
           <div id="quotaNote" class="quota-note"></div>
+        </div>
+
+        <div id="adminPanel" class="admin-panel" style="display:none;">
+          <div class="admin-panel-head">
+            <div class="admin-panel-title">🛡️ Quản trị viên</div>
+            <span class="plan-badge pro">ADMIN</span>
+          </div>
+          <div class="admin-search-row">
+            <input type="email" id="adminSearchEmail" placeholder="Email khách hàng">
+            <button class="btn small" id="adminSearchBtn" type="button">Tìm</button>
+          </div>
+          <div id="adminResult" class="admin-result">
+            <div id="adminResultEmail" class="email"></div>
+            <div id="adminResultMeta" class="meta"></div>
+            <div class="admin-actions">
+              <button class="btn small warm" id="grantPro30Btn" type="button">Cấp Pro 30 ngày</button>
+              <button class="btn small" id="cancelProBtn" type="button">Hủy Pro</button>
+            </div>
+          </div>
+          <div id="adminStatus" class="admin-status">Tìm tài khoản bằng email để cấp/hủy Pro.</div>
         </div>
       </div>
 
@@ -380,7 +410,32 @@ const FREE_LIMITS = Object.freeze({
   aiQuestions: 20
 });
 let accountPlan = 'free';
+let accountProUntil = null;
 let accountUsage = { month: '', quizQuestions: 0, aiQuestions: 0 };
+
+function proUntilMillis(value){
+  if(!value) return null;
+  if(typeof value === 'number') return value;
+  if(typeof value === 'string'){
+    const n = Date.parse(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  if(value instanceof Date) return value.getTime();
+  if(typeof value?.toMillis === 'function') return value.toMillis();
+  if(typeof value?.seconds === 'number') return value.seconds * 1000;
+  return null;
+}
+function cloudPlanIsActive(data){
+  if(!data || data.plan !== 'pro') return false;
+  const until = proUntilMillis(data.proUntil);
+  // Tương thích tài khoản Pro cũ chưa có proUntil: xem là Pro không thời hạn.
+  return !until || until > Date.now();
+}
+function formatProUntil(value){
+  const ms = proUntilMillis(value);
+  if(!ms) return 'Không thời hạn';
+  return new Date(ms).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
 
 function currentMonthKey(){
   const d = new Date();
@@ -451,7 +506,7 @@ async function updateQuotaUI(){
     row.append(l,v); grid.appendChild(row);
   });
   note.textContent=isPro()
-    ? 'Gói Pro: không giới hạn các quota của MedStudy AI. Gemini vẫn sử dụng API Key cá nhân.'
+    ? `Gói Pro: không giới hạn. Hạn Pro: ${formatProUntil(accountProUntil)}. Gemini vẫn sử dụng API Key cá nhân.`
     : `Quota Trắc nghiệm và Hỏi AI tự reset mỗi tháng (${accountUsage.month}).`;
 }
 
@@ -466,7 +521,11 @@ async function reserveMonthlyQuota(kind, amount=1){
   await db.runTransaction(async tx=>{
     const snap=await tx.get(ref);
     const data=snap.exists ? (snap.data()||{}) : {};
-    if(data.plan === 'pro'){ accountPlan='pro'; return; }
+    if(cloudPlanIsActive(data)){
+      accountPlan='pro';
+      accountProUntil=data.proUntil || null;
+      return;
+    }
     const usage=normalizeUsage(data.usage);
     const current=Number(usage[kind])||0;
     if(current + amount > limit){
@@ -655,7 +714,7 @@ async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
 
     // Không mang trường plan từ kho cũ sang tài khoản mới.
     // Gói Pro chỉ được cấp bởi quản trị viên/backend, không từ dữ liệu client cũ.
-    const { plan: _legacyPlan, ...safeOldData } = oldData;
+    const { plan: _legacyPlan, proUntil: _legacyProUntil, ...safeOldData } = oldData;
     await newRef.set({
       ...safeOldData,
       email: auth?.currentUser?.email || safeOldData.email || '',
@@ -722,7 +781,8 @@ async function syncFromCloud() {
 
     if (doc.exists) {
       const data = doc.data() || {};
-      accountPlan = data.plan === 'pro' ? 'pro' : 'free';
+      accountProUntil = data.proUntil || null;
+      accountPlan = cloudPlanIsActive(data) ? 'pro' : 'free';
       accountUsage = normalizeUsage(data.usage);
       toc = data.toc || { subjects: [], lessonsBySubject: {} };
       setStore('toc', toc);
@@ -748,6 +808,7 @@ async function syncFromCloud() {
     renderMain();
 
     accountPlan = 'free';
+    accountProUntil = null;
     accountUsage = normalizeUsage(null);
     await db.collection('users').doc(uidValue).set({
       email: auth.currentUser?.email || '',
@@ -916,6 +977,122 @@ async function deleteSavedLessonSources(lessonId){
   }catch(err){ console.error('deleteSavedLessonSources error:', err); }
 }
 
+
+let adminSelectedUser = null;
+
+async function currentUserIsAdmin(){
+  const user = auth?.currentUser;
+  if(!user || !db) return false;
+  try{
+    const snap = await db.collection('admins').doc(user.uid).get();
+    return snap.exists;
+  }catch(err){
+    console.error('currentUserIsAdmin error:', err);
+    return false;
+  }
+}
+
+async function refreshAdminPanel(){
+  const panel = document.getElementById('adminPanel');
+  if(!panel) return;
+  const allowed = await currentUserIsAdmin();
+  panel.style.display = allowed ? 'block' : 'none';
+  if(!allowed) adminSelectedUser = null;
+}
+
+function setAdminStatus(msg, isErr=false){
+  const el = document.getElementById('adminStatus');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.color = isErr ? 'var(--wrong)' : 'var(--muted)';
+}
+
+function renderAdminUser(docSnap){
+  const box = document.getElementById('adminResult');
+  const emailEl = document.getElementById('adminResultEmail');
+  const metaEl = document.getElementById('adminResultMeta');
+  if(!box || !emailEl || !metaEl) return;
+  if(!docSnap){
+    box.style.display='none';
+    adminSelectedUser=null;
+    return;
+  }
+  const data = docSnap.data() || {};
+  adminSelectedUser = { uid: docSnap.id, data };
+  const active = cloudPlanIsActive(data);
+  emailEl.textContent = data.email || '(Không có email)';
+  const expiry = data.plan === 'pro' ? formatProUntil(data.proUntil) : '—';
+  metaEl.textContent = `UID: ${docSnap.id} • Gói hiện tại: ${active ? 'PRO' : 'FREE'} • Hạn Pro: ${expiry}`;
+  box.style.display='block';
+}
+
+async function adminFindUserByEmail(){
+  const input = document.getElementById('adminSearchEmail');
+  const email = (input?.value || '').trim().toLowerCase();
+  if(!email){ setAdminStatus('Nhập email khách hàng.', true); return; }
+
+  try{
+    setAdminStatus('Đang tìm tài khoản...');
+    const q = await db.collection('users').where('email','==',email).limit(5).get();
+    if(q.empty){
+      renderAdminUser(null);
+      setAdminStatus('Không tìm thấy tài khoản có email này.', true);
+      return;
+    }
+    renderAdminUser(q.docs[0]);
+    setAdminStatus('Đã tìm thấy tài khoản.');
+  }catch(err){
+    console.error('adminFindUserByEmail error:', err);
+    setAdminStatus('Không thể tìm tài khoản: ' + (err?.message || 'Không xác định'), true);
+  }
+}
+
+async function adminGrantPro30(){
+  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
+  const ref = db.collection('users').doc(adminSelectedUser.uid);
+  try{
+    setAdminStatus('Đang cấp Pro...');
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(ref);
+      if(!snap.exists) throw new Error('Tài khoản không còn tồn tại.');
+      const data = snap.data() || {};
+      const oldUntil = proUntilMillis(data.proUntil);
+      const base = oldUntil && oldUntil > Date.now() ? oldUntil : Date.now();
+      const nextUntil = new Date(base + 30 * 24 * 60 * 60 * 1000);
+      tx.update(ref, {
+        plan: 'pro',
+        proUntil: firebase.firestore.Timestamp.fromDate(nextUntil),
+        updatedAt: Date.now()
+      });
+    });
+    const fresh = await ref.get();
+    renderAdminUser(fresh);
+    setAdminStatus(`✅ Đã cấp/ gia hạn Pro 30 ngày đến ${formatProUntil(fresh.data()?.proUntil)}.`);
+  }catch(err){
+    console.error('adminGrantPro30 error:', err);
+    setAdminStatus('Cấp Pro thất bại: ' + (err?.message || 'Không xác định'), true);
+  }
+}
+
+async function adminCancelPro(){
+  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
+  const ref = db.collection('users').doc(adminSelectedUser.uid);
+  try{
+    setAdminStatus('Đang hủy Pro...');
+    await ref.update({
+      plan: 'free',
+      proUntil: null,
+      updatedAt: Date.now()
+    });
+    const fresh = await ref.get();
+    renderAdminUser(fresh);
+    setAdminStatus('✅ Đã hủy Pro. Tài khoản sẽ trở về Free khi đồng bộ/tải lại.');
+  }catch(err){
+    console.error('adminCancelPro error:', err);
+    setAdminStatus('Hủy Pro thất bại: ' + (err?.message || 'Không xác định'), true);
+  }
+}
+
 async function init(){
   const keyInput = document.getElementById('apiKeyInput');
   const syncBtn = document.getElementById('manualSyncBtn');
@@ -930,6 +1107,10 @@ async function init(){
   const authLoggedIn = document.getElementById('authLoggedIn');
   const authUserLine = document.getElementById('authUserLine');
   const authStatus = document.getElementById('authStatus');
+  const adminSearchEmail = document.getElementById('adminSearchEmail');
+  const adminSearchBtn = document.getElementById('adminSearchBtn');
+  const grantPro30Btn = document.getElementById('grantPro30Btn');
+  const cancelProBtn = document.getElementById('cancelProBtn');
 
   function setAuthStatus(msg, isErr=false){
     if(!authStatus) return;
@@ -988,6 +1169,13 @@ async function init(){
     try{ await auth.signOut(); }catch(err){ setAuthStatus(friendlyAuthError(err), true); }
   });
 
+  adminSearchBtn?.addEventListener('click', adminFindUserByEmail);
+  adminSearchEmail?.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') adminFindUserByEmail();
+  });
+  grantPro30Btn?.addEventListener('click', adminGrantPro30);
+  cancelProBtn?.addEventListener('click', adminCancelPro);
+
   auth?.onAuthStateChanged(async user => {
     if(user){
       activeUid = user.uid;
@@ -1001,6 +1189,7 @@ async function init(){
       }
       await syncFromCloud();
       await updateQuotaUI();
+      await refreshAdminPanel();
     }else{
       activeUid = null;
       authLoggedOut.style.display='block';
@@ -1012,6 +1201,7 @@ async function init(){
       setAuthStatus('Đăng nhập để đồng bộ dữ liệu giữa các thiết bị.');
       setSyncMsg('👤 Chưa đăng nhập');
       updateQuotaUI();
+      await refreshAdminPanel();
     }
   });
 
