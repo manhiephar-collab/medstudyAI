@@ -200,7 +200,7 @@
 .admin-account-expiry.pro-expired{color:var(--wrong)}
 .admin-account-expiry.free{color:var(--muted)}
 .admin-account-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
-.admin-account-actions .btn{padding:6px 8px;font-size:9.5px;border-radius:9px;box-shadow:none}
+.admin-account-actions .btn{padding:6px 8px;font-size:9.5px;border-radius:9px;box-shadow:none}.btn.danger-admin{background:linear-gradient(135deg,#E56A73,#C94D58);color:#fff}.btn.danger-admin:hover{box-shadow:0 8px 18px rgba(217,93,104,.20)}
 .admin-empty{padding:14px 8px;text-align:center;color:var(--muted);font-size:10.5px;border:1px dashed var(--line);border-radius:11px;background:rgba(255,255,255,.55)}
 @media(max-width:520px){.admin-tools{grid-template-columns:1fr}.admin-account-list{max-height:420px}.admin-account-top{align-items:center}}
 @media(max-width:520px){.feature-grid{grid-template-columns:1fr}.hero h2{font-size:32px}.hero p{font-size:15px}.api-input-wrap{flex-wrap:wrap}.api-input-wrap .btn{width:100%}.lesson-title{font-size:22px}.card,.q-box{padding:17px}.quiz-options-grid{grid-template-columns:1fr}.q-nav{gap:8px}.q-nav .btn{flex:1}.mindmap-toolbar{left:10px;right:10px;top:10px;justify-content:center}#mindmapViewport{height:560px}.mindmap-wrapper{min-height:560px}}
@@ -366,6 +366,7 @@
               <button class="btn small warm" id="grantPro30Btn" type="button">Cấp Pro 30 ngày</button>
               <button class="btn small warm" id="grantPro90Btn" type="button">Cấp Pro 90 ngày</button>
               <button class="btn small" id="cancelProBtn" type="button">Hủy Pro</button>
+              <button class="btn small danger-admin" id="deleteUserDataBtn" type="button">Xóa tài khoản</button>
             </div>
           </div>
 
@@ -1375,6 +1376,50 @@ function renderAdminUser(docSnap){
   box.style.display='block';
 }
 
+
+async function adminDeleteUserDataByUid(uid, email=''){
+  if(!uid){ setAdminStatus('Không xác định được UID cần xóa.', true); return; }
+
+  const me = auth?.currentUser;
+  if(me?.uid === uid){
+    setAdminStatus('Không thể xóa document của chính tài khoản quản trị viên đang đăng nhập.', true);
+    return;
+  }
+
+  const label = email || uid;
+  const ok = confirm(
+    `Xóa tài khoản dữ liệu "${label}" khỏi Firestore?\n\n` +
+    `Thao tác này sẽ xóa document users/${uid} và dữ liệu học tập lưu trong document đó.\n` +
+    `LƯU Ý: tài khoản Firebase Authentication (email đăng nhập) sẽ KHÔNG bị xóa bởi thao tác này.`
+  );
+  if(!ok) return;
+
+  try{
+    setAdminStatus(`Đang xóa ${label}...`);
+    await db.collection('users').doc(uid).delete();
+
+    adminAllUsers = adminAllUsers.filter(x => x.uid !== uid);
+    if(adminSelectedUser?.uid === uid){
+      adminSelectedUser = null;
+      renderAdminUser(null);
+    }
+    adminRenderAccountList();
+    setAdminStatus(`✅ Đã xóa dữ liệu tài khoản ${label} khỏi Firestore.`);
+  }catch(err){
+    console.error('adminDeleteUserDataByUid error:', err);
+    setAdminStatus('Xóa tài khoản thất bại: ' + (err?.message || 'Không xác định'), true);
+  }
+}
+
+async function adminDeleteSelectedUserData(){
+  if(!adminSelectedUser?.uid){
+    setAdminStatus('Hãy kiểm tra/tìm tài khoản trước.', true);
+    return;
+  }
+  const email = adminSelectedUser?.data?.email || adminSelectedUser?.data?.emailLower || '';
+  await adminDeleteUserDataByUid(adminSelectedUser.uid, email);
+}
+
 async function adminFindUserByEmail(){
   const input = document.getElementById('adminSearchEmail');
   const email = (input?.value || '').trim().toLowerCase();
@@ -1683,6 +1728,7 @@ async function init(){
   const grantPro30Btn = document.getElementById('grantPro30Btn');
   const grantPro90Btn = document.getElementById('grantPro90Btn');
   const cancelProBtn = document.getElementById('cancelProBtn');
+  const deleteUserDataBtn = document.getElementById('deleteUserDataBtn');
   const adminPlanFilter = document.getElementById('adminPlanFilter');
   const adminSortOrder = document.getElementById('adminSortOrder');
   const adminAccountList = document.getElementById('adminAccountList');
@@ -1806,6 +1852,7 @@ async function init(){
   grantPro30Btn?.addEventListener('click', adminGrantPro30);
   grantPro90Btn?.addEventListener('click', adminGrantPro90);
   cancelProBtn?.addEventListener('click', adminCancelPro);
+  deleteUserDataBtn?.addEventListener('click', adminDeleteSelectedUserData);
   adminPlanFilter?.addEventListener('change', adminRenderAccountList);
   adminSortOrder?.addEventListener('change', adminRenderAccountList);
   adminAccountList?.addEventListener('click', async (e)=>{
