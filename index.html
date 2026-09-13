@@ -97,6 +97,8 @@
   .api-box input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:12px;background:rgba(255,255,255,.74);color:var(--ink);}
   .api-box a{display:block;font-size:11px;color:var(--accent-dark);margin-top:5px;text-decoration:none;font-weight:600;}
   .api-box a:hover{text-decoration:underline}.sync-status{font-size:11.5px;color:var(--muted);margin-top:7px;font-weight:600;min-height:16px;}
+.legacy-link-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.legacy-link-status{font-size:10.5px;color:var(--muted);line-height:1.45;min-height:15px}
 
   #subjectList{gap:5px!important;}
   .subject-block{border-bottom:1px solid rgba(56,130,139,.10);padding-bottom:8px;margin-bottom:1px;}
@@ -350,6 +352,10 @@
       </div>
       <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 Lấy mã tại Google AI Studio</a>
       <div class="sync-status" id="syncStatusLine">🔑 Chưa nhập API Key</div>
+      <div class="legacy-link-row">
+        <button class="btn small ghost" id="linkLegacyDataBtn" type="button">🔗 Liên kết dữ liệu cũ từ API Key</button>
+      </div>
+      <div id="legacyLinkStatus" class="legacy-link-status">Dùng khi bạn đã học bằng phiên bản cũ trước khi có tài khoản email.</div>
       <div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.45;">Gemini API Key chỉ dùng để gọi AI; dữ liệu đồng bộ theo tài khoản MedStudy AI.</div>
     </div>
 
@@ -787,6 +793,95 @@ function hasMeaningfulLocalData(uidValue) {
   Khi chuyển sang Firebase Auth, ta chỉ sao chép dữ liệu cũ sang users/{authUid}
   nếu kho tài khoản mới chưa có dữ liệu thực. Tuyệt đối không ghi đè dữ liệu mới.
 */
+
+function mergeById(currentList, legacyList){
+  const out = [];
+  const seen = new Set();
+  for(const item of [...(Array.isArray(currentList)?currentList:[]), ...(Array.isArray(legacyList)?legacyList:[])]){
+    if(!item || typeof item !== 'object') continue;
+    const key = String(item.id || '');
+    if(key && seen.has(key)) continue;
+    if(key) seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function mergeTocData(currentToc, legacyToc){
+  const cur = (currentToc && typeof currentToc === 'object') ? currentToc : {};
+  const old = (legacyToc && typeof legacyToc === 'object') ? legacyToc : {};
+  const subjects = mergeById(cur.subjects, old.subjects);
+  const lessonsBySubject = { ...(old.lessonsBySubject || {}), ...(cur.lessonsBySubject || {}) };
+
+  const subjectIds = new Set([
+    ...Object.keys(old.lessonsBySubject || {}),
+    ...Object.keys(cur.lessonsBySubject || {})
+  ]);
+
+  for(const subjectId of subjectIds){
+    lessonsBySubject[subjectId] = mergeById(
+      cur.lessonsBySubject?.[subjectId],
+      old.lessonsBySubject?.[subjectId]
+    );
+  }
+
+  return { subjects, lessonsBySubject };
+}
+
+async function linkLegacyApiKeyDataToCurrentAccount(apiKey){
+  const user = auth?.currentUser;
+  if(!db || !user) throw new Error('Vui lòng đăng nhập tài khoản MedStudy AI trước.');
+
+  const cleanKey = String(apiKey || '').replace(/\s+/g,'');
+  if(!cleanKey) throw new Error('Vui lòng nhập Gemini API Key đã dùng ở phiên bản cũ.');
+
+  const legacyUid = getUserIdFromApiKey(cleanKey);
+  if(!legacyUid || legacyUid === user.uid) throw new Error('Không tìm thấy kho dữ liệu cũ khác với tài khoản hiện tại.');
+
+  const currentRef = db.collection('users').doc(user.uid);
+  const legacyRef = db.collection('users').doc(legacyUid);
+
+  const [currentSnap, legacySnap] = await Promise.all([currentRef.get(), legacyRef.get()]);
+  if(!legacySnap.exists) throw new Error('Không tìm thấy dữ liệu cũ tương ứng với API Key này.');
+
+  const legacyData = legacySnap.data() || {};
+  if(!hasMeaningfulCloudData(legacyData)){
+    throw new Error('Kho dữ liệu cũ không có môn học, bài học hoặc lịch sử để liên kết.');
+  }
+
+  const currentData = currentSnap.exists ? (currentSnap.data() || {}) : {};
+  const mergedToc = mergeTocData(currentData.toc, legacyData.toc);
+  const mergedLessons = { ...(legacyData.lessons || {}), ...(currentData.lessons || {}) };
+  const mergedAttempts = { ...(legacyData.attempts || {}), ...(currentData.attempts || {}) };
+
+  // Không lấy plan/proUntil/usage từ kho cũ. Quyền Pro và quota luôn thuộc tài khoản email hiện tại.
+  await currentRef.set({
+    email: normalizeAccountEmail(user.email),
+    emailLower: normalizeAccountEmail(user.email),
+    toc: mergedToc,
+    lessons: mergedLessons,
+    attempts: mergedAttempts,
+    linkedLegacyUids: firebase.firestore.FieldValue.arrayUnion(legacyUid),
+    legacyLinkedAt: Date.now(),
+    updatedAt: Date.now()
+  }, { merge:true });
+
+  // Sao chép cache local cũ sang namespace Firebase UID, nhưng không ghi đè dữ liệu mới đang có.
+  migrateApiKeyAccountCacheToFirebaseUid(user.uid, cleanKey);
+
+  // Đưa dữ liệu đã hợp nhất vào localStorage để giao diện dùng ngay.
+  activeUid = user.uid;
+  setStore('toc', mergedToc);
+  for(const [k,v] of Object.entries(mergedLessons)) setStore(k, v);
+  for(const [k,v] of Object.entries(mergedAttempts)) setStore(k, v);
+
+  return {
+    legacyUid,
+    subjects: mergedToc.subjects?.length || 0,
+    lessons: Object.values(mergedToc.lessonsBySubject || {}).reduce((n,arr)=>n+(Array.isArray(arr)?arr.length:0),0)
+  };
+}
+
 async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
   if (!db || !firebaseUid || !apiKey) return false;
 
@@ -1486,6 +1581,8 @@ function adminSelectUserFromList(uid){
 async function init(){
   const keyInput = document.getElementById('apiKeyInput');
   const syncBtn = document.getElementById('manualSyncBtn');
+  const linkLegacyDataBtn = document.getElementById('linkLegacyDataBtn');
+  const legacyLinkStatus = document.getElementById('legacyLinkStatus');
   const savedKey = (localStorage.getItem('gemini_api_key') || '').replace(/\s+/g, '');
 
   const authEmail = document.getElementById('authEmail');
@@ -1540,6 +1637,51 @@ async function init(){
     migrateApiKeyAccountCacheToFirebaseUid(auth.currentUser.uid, key);
     await recoverLegacyApiKeyCloudData(auth.currentUser.uid, key);
     await syncFromCloud();
+  }
+
+
+  async function triggerLegacyLink(){
+    const key = (keyInput?.value || '').replace(/\s+/g,'');
+    if(!auth?.currentUser){
+      if(legacyLinkStatus) legacyLinkStatus.textContent='👤 Hãy đăng nhập tài khoản MedStudy AI trước.';
+      return;
+    }
+    if(!key){
+      if(legacyLinkStatus) legacyLinkStatus.textContent='🔑 Hãy nhập API Key cũ trước khi liên kết.';
+      return;
+    }
+
+    const confirmed = confirm(
+      'Liên kết dữ liệu cũ từ API Key này vào tài khoản email hiện tại?\n\n' +
+      'Dữ liệu cũ sẽ được KẾT HỢP với dữ liệu hiện tại. Gói Pro và quota hiện tại không bị thay đổi.'
+    );
+    if(!confirmed) return;
+
+    try{
+      linkLegacyDataBtn.disabled = true;
+      if(legacyLinkStatus) legacyLinkStatus.textContent='☁️ Đang tìm và liên kết dữ liệu cũ...';
+      localStorage.setItem('gemini_api_key', key);
+
+      const result = await linkLegacyApiKeyDataToCurrentAccount(key);
+      await syncFromCloud();
+      renderSidebar();
+      renderMain();
+      await updateQuotaUI();
+
+      if(legacyLinkStatus){
+        legacyLinkStatus.textContent =
+          `✅ Đã liên kết dữ liệu cũ: ${result.subjects} môn, ${result.lessons} bài học vào tài khoản ${auth.currentUser.email}.`;
+        legacyLinkStatus.style.color='var(--correct)';
+      }
+    }catch(err){
+      console.error('triggerLegacyLink error:', err);
+      if(legacyLinkStatus){
+        legacyLinkStatus.textContent='❌ ' + (err?.message || 'Liên kết dữ liệu cũ thất bại.');
+        legacyLinkStatus.style.color='var(--wrong)';
+      }
+    }finally{
+      linkLegacyDataBtn.disabled = false;
+    }
   }
 
   if (savedKey) keyInput.value = savedKey;
@@ -1638,6 +1780,7 @@ async function init(){
     if(key) localStorage.setItem('gemini_api_key', key);
   });
   if(syncBtn) syncBtn.addEventListener('click', triggerSync);
+  linkLegacyDataBtn?.addEventListener('click', triggerLegacyLink);
 }
 init();
 
