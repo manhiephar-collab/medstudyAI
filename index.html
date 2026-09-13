@@ -451,6 +451,84 @@ function migrateApiKeyAccountCacheToFirebaseUid(firebaseUid, apiKey) {
   localStorage.setItem(marker, '1');
 }
 
+
+function hasMeaningfulCloudData(data) {
+  if (!data || typeof data !== 'object') return false;
+  const subjects = data.toc?.subjects;
+  const lessonsBySubject = data.toc?.lessonsBySubject;
+  return !!(
+    (Array.isArray(subjects) && subjects.length) ||
+    (lessonsBySubject && Object.keys(lessonsBySubject).some(k => (lessonsBySubject[k] || []).length)) ||
+    (data.lessons && Object.keys(data.lessons).length) ||
+    (data.attempts && Object.keys(data.attempts).length)
+  );
+}
+
+function hasMeaningfulLocalData(uidValue) {
+  if (!uidValue) return false;
+  try {
+    const rawToc = localStorage.getItem(accountStorageKey('toc', uidValue));
+    if (rawToc) {
+      const t = JSON.parse(rawToc);
+      if ((Array.isArray(t?.subjects) && t.subjects.length) ||
+          (t?.lessonsBySubject && Object.keys(t.lessonsBySubject).some(k => (t.lessonsBySubject[k] || []).length))) {
+        return true;
+      }
+    }
+    const prefix = `medstudy:${uidValue}:`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix) &&
+          (k.slice(prefix.length).startsWith('lesson:') || k.slice(prefix.length).startsWith('attempts:'))) {
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error('hasMeaningfulLocalData error:', e);
+  }
+  return false;
+}
+
+/*
+  KHÔI PHỤC DỮ LIỆU CŨ:
+  Bản trước dùng SHA-256 của Gemini API Key làm document id Firestore.
+  Khi chuyển sang Firebase Auth, ta chỉ sao chép dữ liệu cũ sang users/{authUid}
+  nếu kho tài khoản mới chưa có dữ liệu thực. Tuyệt đối không ghi đè dữ liệu mới.
+*/
+async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
+  if (!db || !firebaseUid || !apiKey) return false;
+
+  const oldUid = getUserIdFromApiKey(apiKey);
+  if (!oldUid || oldUid === firebaseUid) return false;
+
+  try {
+    migrateApiKeyAccountCacheToFirebaseUid(firebaseUid, apiKey);
+
+    const newRef = db.collection('users').doc(firebaseUid);
+    const oldRef = db.collection('users').doc(oldUid);
+
+    const [newSnap, oldSnap] = await Promise.all([newRef.get(), oldRef.get()]);
+    const newData = newSnap.exists ? (newSnap.data() || {}) : {};
+    const oldData = oldSnap.exists ? (oldSnap.data() || {}) : {};
+
+    if (hasMeaningfulCloudData(newData)) return false;
+    if (!hasMeaningfulCloudData(oldData)) return false;
+
+    await newRef.set({
+      ...oldData,
+      migratedFromApiKeyUid: oldUid,
+      migratedAt: Date.now(),
+      updatedAt: Date.now()
+    }, { merge: true });
+
+    console.info('Đã khôi phục dữ liệu Firestore cũ từ', oldUid, 'sang', firebaseUid);
+    return true;
+  } catch (err) {
+    console.error('recoverLegacyApiKeyCloudData error:', err);
+    return false;
+  }
+}
+
 function resetUiForAccountSwitch() {
   toc = { subjects: [], lessonsBySubject: {} };
   openSubjects.clear();
@@ -476,10 +554,25 @@ async function syncFromCloud() {
 
   try {
     activeUid = uidValue;
+
+    // Trước khi đọc kho mới, thử phục hồi dữ liệu cũ theo Gemini API Key.
+    const savedGeminiKey = (localStorage.getItem('gemini_api_key') || '').replace(/\s+/g, '');
+    if (savedGeminiKey) {
+      await recoverLegacyApiKeyCloudData(uidValue, savedGeminiKey);
+    }
+
+    let doc = await db.collection('users').doc(uidValue).get();
+
+    // Nếu cloud mới chưa có dữ liệu nhưng máy này còn cache cũ đã được chuyển namespace,
+    // ưu tiên sao lưu cache đó lên UID mới thay vì tạo một kho trống.
+    const cloudDataBefore = doc.exists ? (doc.data() || {}) : {};
+    if (!hasMeaningfulCloudData(cloudDataBefore) && hasMeaningfulLocalData(uidValue)) {
+      await syncToCloud();
+      doc = await db.collection('users').doc(uidValue).get();
+    }
+
     resetUiForAccountSwitch();
     activeUid = uidValue;
-
-    const doc = await db.collection('users').doc(uidValue).get();
 
     if (doc.exists) {
       const data = doc.data() || {};
@@ -499,7 +592,7 @@ async function syncFromCloud() {
       return;
     }
 
-    // API hoàn toàn mới: KHÔNG lấy dữ liệu của API trước để đẩy sang.
+    // Tài khoản hoàn toàn mới và không tìm thấy dữ liệu cũ để phục hồi.
     toc = { subjects: [], lessonsBySubject: {} };
     setStore('toc', toc);
     renderSidebar();
@@ -710,6 +803,7 @@ async function init(){
       return;
     }
     migrateApiKeyAccountCacheToFirebaseUid(auth.currentUser.uid, key);
+    await recoverLegacyApiKeyCloudData(auth.currentUser.uid, key);
     await syncFromCloud();
   }
 
@@ -743,7 +837,10 @@ async function init(){
       authLoggedIn.style.display='block';
       authUserLine.textContent = `✅ ${user.email || 'Đã đăng nhập'}`;
       setAuthStatus('Dữ liệu được gắn với tài khoản này.');
-      if(savedKey) migrateApiKeyAccountCacheToFirebaseUid(user.uid, savedKey);
+      if(savedKey) {
+        migrateApiKeyAccountCacheToFirebaseUid(user.uid, savedKey);
+        await recoverLegacyApiKeyCloudData(user.uid, savedKey);
+      }
       await syncFromCloud();
     }else{
       activeUid = null;
