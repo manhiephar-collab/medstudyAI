@@ -757,7 +757,8 @@ async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
     const { plan: _legacyPlan, proUntil: _legacyProUntil, ...safeOldData } = oldData;
     await newRef.set({
       ...safeOldData,
-      email: auth?.currentUser?.email || safeOldData.email || '',
+      email: normalizeAccountEmail(auth?.currentUser?.email || safeOldData.email || ''),
+      emailLower: normalizeAccountEmail(auth?.currentUser?.email || safeOldData.email || ''),
       plan: 'free',
       migratedFromApiKeyUid: oldUid,
       migratedAt: Date.now(),
@@ -851,7 +852,8 @@ async function syncFromCloud() {
     accountProUntil = null;
     accountUsage = normalizeUsage(null);
     await db.collection('users').doc(uidValue).set({
-      email: auth.currentUser?.email || '',
+      email: normalizeAccountEmail(auth.currentUser?.email),
+      emailLower: normalizeAccountEmail(auth.currentUser?.email),
       toc,
       lessons: {},
       attempts: {},
@@ -881,7 +883,8 @@ async function syncToCloud() {
   try {
     accountUsage = normalizeUsage(accountUsage);
     const payload = {
-      email: user.email || '',
+      email: normalizeAccountEmail(user.email),
+      emailLower: normalizeAccountEmail(user.email),
       toc: getStore('toc') || { subjects: [], lessonsBySubject: {} },
       lessons: {},
       attempts: {},
@@ -1019,6 +1022,25 @@ async function deleteSavedLessonSources(lessonId){
 
 
 let adminSelectedUser = null;
+
+function normalizeAccountEmail(value){
+  return String(value || '').trim().toLowerCase();
+}
+
+async function ensureOwnEmailIndex(user){
+  if(!user || !db) return;
+  const email = normalizeAccountEmail(user.email);
+  if(!email) return;
+  try{
+    await db.collection('users').doc(user.uid).set({
+      email: email,
+      emailLower: email,
+      updatedAt: Date.now()
+    }, { merge: true });
+  }catch(err){
+    console.error('ensureOwnEmailIndex error:', err);
+  }
+}
 let adminAllUsers = [];
 let adminSearchTerm = '';
 
@@ -1177,50 +1199,76 @@ async function adminGrantProDaysForUid(uid, days){
 }
 async function adminResolveUidByEmail(){
   const input = document.getElementById('adminSearchEmail');
-  const email = String(input?.value || '').trim().toLowerCase();
+  const email = normalizeAccountEmail(input?.value);
 
   if(!email){
     setAdminStatus('Hãy nhập email khách hàng cần cấp quyền.', true);
     return null;
   }
 
-  // Tìm trong danh sách đã tải trước; không phụ thuộc bộ lọc Free/Pro.
-  let hit = adminAllUsers.find(
-    x => String(x.data?.email || '').trim().toLowerCase() === email
-  );
+  setAdminStatus(`Đang tìm tài khoản ${email}...`);
+
+  // Luôn tải danh sách mới nhất để tránh cache cũ thiếu email.
+  try{
+    await adminLoadAllUsers();
+  }catch(_){}
+
+  // 1) Tìm trong dữ liệu đã tải, không phụ thuộc bộ lọc Free/Pro.
+  let hit = adminAllUsers.find(x => {
+    const d = x.data || {};
+    return normalizeAccountEmail(d.emailLower || d.email) === email;
+  });
 
   if(hit){
     renderAdminUser({ id: hit.uid, data: ()=>hit.data });
+    setAdminStatus(`Đã tìm thấy ${email}. Bạn có thể cấp Pro 30 ngày, 90 ngày hoặc hủy Pro.`);
     return hit.uid;
   }
 
-  // Nếu chưa có trong cache, truy vấn trực tiếp Firestore theo email.
+  // 2) Query bằng emailLower (bản mới).
   try{
-    const q = await db.collection('users').where('email', '==', email).limit(2).get();
+    let q = await db.collection('users').where('emailLower', '==', email).limit(2).get();
+
+    // 3) Fallback cho tài khoản cũ chỉ có field email.
     if(q.empty){
-      renderAdminUser(null);
-      setAdminStatus(`Không tìm thấy tài khoản đã đăng ký với email ${email}.`, true);
-      return null;
+      q = await db.collection('users').where('email', '==', email).limit(2).get();
     }
 
-    const doc = q.docs[0];
-    hit = { uid: doc.id, data: doc.data() || {} };
+    if(!q.empty){
+      const doc = q.docs[0];
+      const data = doc.data() || {};
+      hit = { uid: doc.id, data };
 
-    if(!adminAllUsers.some(x => x.uid === hit.uid)){
-      adminAllUsers.push(hit);
-    }else{
       const idx = adminAllUsers.findIndex(x => x.uid === hit.uid);
-      adminAllUsers[idx] = hit;
-    }
+      if(idx >= 0) adminAllUsers[idx] = hit;
+      else adminAllUsers.push(hit);
 
-    renderAdminUser(doc);
-    adminRenderAccountList();
-    return hit.uid;
+      renderAdminUser(doc);
+      setAdminStatus(`Đã tìm thấy ${email}. Bạn có thể cấp Pro 30 ngày, 90 ngày hoặc hủy Pro.`);
+      return hit.uid;
+    }
   }catch(err){
-    console.error('adminResolveUidByEmail error:', err);
-    setAdminStatus('Không thể tìm tài khoản theo email: ' + (err?.message || 'Không xác định'), true);
-    return null;
+    console.error('Query email error:', err);
   }
+
+  // 4) Nếu email nhập chính là tài khoản admin đang đăng nhập, tự sửa document của nó.
+  const me = auth?.currentUser;
+  if(me && normalizeAccountEmail(me.email) === email){
+    await ensureOwnEmailIndex(me);
+    const own = await db.collection('users').doc(me.uid).get();
+    if(own.exists){
+      renderAdminUser(own);
+      setAdminStatus(`Đã liên kết lại email ${email} với tài khoản hiện tại.`);
+      return me.uid;
+    }
+  }
+
+  renderAdminUser(null);
+  setAdminStatus(
+    `Không tìm thấy tài khoản ${email}. Nếu đây là tài khoản cũ, hãy đăng nhập tài khoản đó một lần bằng phiên bản mới để hệ thống ghi email vào Firestore, rồi thử lại.`,
+    true
+  );
+  return null;
 }
 
 async function adminGrantProByEmail(days){
@@ -1463,6 +1511,7 @@ async function init(){
 
   auth?.onAuthStateChanged(async user => {
     if(user){
+      await ensureOwnEmailIndex(user);
       activeUid = user.uid;
       authLoggedOut.style.display='none';
       authLoggedIn.style.display='block';
