@@ -129,6 +129,7 @@
   .upload-box{border:1.5px dashed rgba(14,165,164,.38);padding:36px 20px;border-radius:16px;text-align:center;background:linear-gradient(135deg,rgba(226,249,247,.66),rgba(238,245,255,.58));margin-bottom:16px;cursor:pointer;transition:.2s ease}.upload-box:hover,.upload-box.dragover{border-color:var(--accent);background:linear-gradient(135deg,rgba(216,248,246,.92),rgba(230,242,255,.85));transform:translateY(-1px)}
   .file-queue{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.file-chip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(240,249,249,.88);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink)}.file-chip .chip-del{cursor:pointer;color:var(--muted);font-weight:bold;padding:0 4px}.file-chip .chip-del:hover{color:var(--wrong)}
   .field{margin-bottom:16px}.field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;font-weight:650}.field textarea{width:100%;min-height:100px;resize:vertical;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72);line-height:1.55;color:var(--ink)}
+  .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:7px;color:var(--correct);font-weight:650}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
   .quiz-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;padding:14px;background:rgba(244,250,251,.66);border:1px solid var(--line);border-radius:14px}.quiz-options-grid label{font-size:12px;color:var(--ink-2);font-weight:650;display:block;margin-bottom:6px}.quiz-options-grid select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.78);font-size:13px;color:var(--ink)}.status-line{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
 
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.48);border:1px solid var(--line);backdrop-filter:blur(12px)}.mindmap-help .hint{font-size:12.5px;color:var(--muted)}
@@ -1110,6 +1111,12 @@ function renderGenerateForm(){
     <div class="file-queue" id="fileQueue"></div>
     <div id="sourceSaveHint" style="font-size:11.5px;color:var(--muted);margin:-4px 0 14px;display:none;">💾 Tài liệu của bài học được lưu trên thiết bị và sẽ tự nạp lại khi bạn cần tạo mới.</div>
 
+    <div class="paste-source-box" id="pasteSourceBox" tabindex="0" role="textbox" aria-label="Dán ảnh chụp màn hình hoặc nội dung chữ">
+      <div class="paste-source-title">📋 Dán ảnh chụp màn hình hoặc nội dung chữ</div>
+      <div class="paste-source-hint">Máy tính: bấm vào đây rồi Ctrl+V / ⌘V. Điện thoại: chạm giữ và chọn <strong>Dán</strong>. Ảnh sẽ được thêm như tài liệu; chữ sẽ được đưa vào ô nội dung bên dưới.</div>
+      <div class="paste-source-state" id="pasteSourceState"></div>
+    </div>
+
     <div class="quiz-options-grid">
       <div>
         <label for="quizCountSelect">Số lượng câu trắc nghiệm:</label>
@@ -1148,6 +1155,8 @@ function renderGenerateForm(){
   const textarea = wrap.querySelector('#contentInput');
   const status = wrap.querySelector('#genStatus');
   const sourceSaveHint = wrap.querySelector('#sourceSaveHint');
+  const pasteSourceBox = wrap.querySelector('#pasteSourceBox');
+  const pasteSourceState = wrap.querySelector('#pasteSourceState');
 
   function renderQueueList(){
     queueEl.innerHTML = '';
@@ -1219,6 +1228,58 @@ function renderGenerateForm(){
     await saveLessonSources(currentLessonId, uploadedFilesQueue);
     renderQueueList();
   }
+
+  function appendPastedText(value){
+    const pasted = String(value || '').trim();
+    if(!pasted) return false;
+    const current = textarea.value.trim();
+    textarea.value = current ? `${current}\n\n${pasted}` : pasted;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    if(pasteSourceState) pasteSourceState.textContent = `✓ Đã dán ${pasted.length.toLocaleString('vi-VN')} ký tự.`;
+    return true;
+  }
+
+  async function handleClipboardPaste(event){
+    const clipboard = event.clipboardData;
+    if(!clipboard) return false;
+
+    const imageFiles = [];
+    for(const item of Array.from(clipboard.items || [])){
+      if(item.kind === 'file' && String(item.type || '').startsWith('image/')){
+        const blob = item.getAsFile();
+        if(blob){
+          const ext = (blob.type.split('/')[1] || 'png').replace('jpeg','jpg');
+          const safeExt = ['png','jpg','webp','heic','heif'].includes(ext) ? ext : 'png';
+          imageFiles.push(new File([blob], `Anh-dan-${Date.now()}-${imageFiles.length+1}.${safeExt}`, { type: blob.type || 'image/png' }));
+        }
+      }
+    }
+
+    if(imageFiles.length){
+      event.preventDefault();
+      if(pasteSourceBox) pasteSourceBox.classList.add('is-pasting');
+      await processFiles(imageFiles);
+      if(pasteSourceBox) pasteSourceBox.classList.remove('is-pasting');
+      if(pasteSourceState) pasteSourceState.textContent = `✓ Đã thêm ${imageFiles.length} ảnh từ clipboard.`;
+      return true;
+    }
+
+    // Khi dán tại vùng chuyên dụng, đưa text vào ô nội dung thay vì để text nằm trong vùng hướng dẫn.
+    if(event.currentTarget === pasteSourceBox){
+      const plain = clipboard.getData('text/plain');
+      if(plain){
+        event.preventDefault();
+        return appendPastedText(plain);
+      }
+    }
+    return false;
+  }
+
+  // Hỗ trợ Ctrl+V / ⌘V và Dán trên điện thoại.
+  pasteSourceBox?.addEventListener('paste', handleClipboardPaste);
+  // Nếu người dùng dán ảnh khi con trỏ đang ở ô nội dung, ảnh vẫn được nhận và thêm vào tài liệu.
+  textarea.addEventListener('paste', handleClipboardPaste);
+  pasteSourceBox?.addEventListener('click', () => pasteSourceBox.focus());
 
   // Không gắn click cho toàn bộ dropArea vì bên trong có các nút riêng, tránh mở hộp chọn file 2 lần trên mobile.
   pickFilesBtn.addEventListener('click', (e) => { e.stopPropagation(); pdfInput.click(); });
