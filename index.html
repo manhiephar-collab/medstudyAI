@@ -651,12 +651,14 @@ const FREE_LIMITS = Object.freeze({
   subjects: 5,
   lessons: 6,
   documents: 7,
+  documentReuploads: 40,
   quizQuestions: 80,
   aiQuestions: 20
 });
 let accountPlan = 'free';
 let accountProUntil = null;
 let accountUsage = { month: '', quizQuestions: 0, aiQuestions: 0 };
+let accountDocumentCycle = { reuploads: 0, pendingDeletes: 0 };
 
 function proUntilMillis(value){
   if(!value) return null;
@@ -696,6 +698,102 @@ function normalizeUsage(raw){
     aiQuestions: Math.max(0, Number(src.aiQuestions)||0)
   };
 }
+
+function normalizeDocumentCycle(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  return {
+    reuploads: Math.max(0, Number(src.reuploads) || 0),
+    pendingDeletes: Math.max(0, Number(src.pendingDeletes) || 0)
+  };
+}
+
+async function recordDocumentDeletion(amount=1){
+  if(isPro() || !amount) return;
+  const user=auth?.currentUser;
+  if(!user) throw new Error('Vui lòng đăng nhập tài khoản MedStudy AI.');
+
+  const ref=db.collection('users').doc(user.uid);
+  let nextCycle=null;
+
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    const data=snap.exists ? (snap.data()||{}) : {};
+
+    if(cloudPlanIsActive(data)){
+      accountPlan='pro';
+      accountProUntil=data.proUntil || null;
+      return;
+    }
+
+    const cycle=normalizeDocumentCycle(data.documentCycle);
+    cycle.pendingDeletes += amount;
+    nextCycle=cycle;
+    tx.set(ref,{documentCycle:cycle,updatedAt:Date.now()},{merge:true});
+  });
+
+  if(nextCycle) accountDocumentCycle=nextCycle;
+}
+
+async function reserveDocumentReuploads(amount=1){
+  if(isPro() || !amount) return {reserved:0};
+  const user=auth?.currentUser;
+  if(!user) throw new Error('Vui lòng đăng nhập tài khoản MedStudy AI.');
+
+  const ref=db.collection('users').doc(user.uid);
+  let reserved=0;
+  let nextCycle=null;
+
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    const data=snap.exists ? (snap.data()||{}) : {};
+
+    if(cloudPlanIsActive(data)){
+      accountPlan='pro';
+      accountProUntil=data.proUntil || null;
+      return;
+    }
+
+    const cycle=normalizeDocumentCycle(data.documentCycle);
+    const remaining=Math.max(0, FREE_LIMITS.documentReuploads-cycle.reuploads);
+    if(amount > remaining){
+      const err=new Error('Bạn đã đạt giới hạn upload tài liệu');
+      err.code='document-reupload-limit';
+      throw err;
+    }
+
+    const consume=Math.min(amount, cycle.pendingDeletes);
+    cycle.reuploads += consume;
+    cycle.pendingDeletes = Math.max(0, cycle.pendingDeletes-consume);
+    reserved=consume;
+    nextCycle=cycle;
+    tx.set(ref,{documentCycle:cycle,updatedAt:Date.now()},{merge:true});
+  });
+
+  if(nextCycle) accountDocumentCycle=nextCycle;
+  return {reserved};
+}
+
+async function refundDocumentReuploads(amount=1){
+  if(isPro() || !amount || !auth?.currentUser) return;
+  const ref=db.collection('users').doc(auth.currentUser.uid);
+  let nextCycle=null;
+  try{
+    await db.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      const data=snap.exists ? (snap.data()||{}) : {};
+      const cycle=normalizeDocumentCycle(data.documentCycle);
+      const n=Math.min(amount, cycle.reuploads);
+      cycle.reuploads=Math.max(0, cycle.reuploads-n);
+      cycle.pendingDeletes += n;
+      nextCycle=cycle;
+      tx.set(ref,{documentCycle:cycle,updatedAt:Date.now()},{merge:true});
+    });
+    if(nextCycle) accountDocumentCycle=nextCycle;
+  }catch(err){
+    console.warn('refundDocumentReuploads error:',err);
+  }
+}
+
 function isPro(){ return accountPlan === 'pro'; }
 function totalLessonCount(){
   return Object.values(toc?.lessonsBySubject || {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
@@ -1011,6 +1109,7 @@ function resetUiForAccountSwitch() {
   toc = { subjects: [], lessonsBySubject: {} };
   accountPlan = 'free';
   accountUsage = { month: currentMonthKey(), quizQuestions:0, aiQuestions:0 };
+  accountDocumentCycle = { reuploads:0, pendingDeletes:0 };
   openSubjects.clear();
   currentSubjectId = null;
   currentLessonId = null;
@@ -1056,6 +1155,7 @@ async function syncFromCloud() {
       accountProUntil = data.proUntil || null;
       accountPlan = cloudPlanIsActive(data) ? 'pro' : 'free';
       accountUsage = normalizeUsage(data.usage);
+      accountDocumentCycle = normalizeDocumentCycle(data.documentCycle);
       toc = data.toc || { subjects: [], lessonsBySubject: {} };
       setStore('toc', toc);
 
@@ -1082,6 +1182,7 @@ async function syncFromCloud() {
     accountPlan = 'free';
     accountProUntil = null;
     accountUsage = normalizeUsage(null);
+    accountDocumentCycle = normalizeDocumentCycle(null);
     await db.collection('users').doc(uidValue).set({
       email: normalizeAccountEmail(auth.currentUser?.email),
       emailLower: normalizeAccountEmail(auth.currentUser?.email),
@@ -1090,6 +1191,7 @@ async function syncFromCloud() {
       attempts: {},
       plan: 'free',
       usage: accountUsage,
+      documentCycle: accountDocumentCycle,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }, { merge: true });
@@ -1120,6 +1222,7 @@ async function syncToCloud() {
       lessons: {},
       attempts: {},
       usage: accountUsage,
+      documentCycle: accountDocumentCycle,
       updatedAt: Date.now()
     };
 
@@ -2248,10 +2351,16 @@ function renderGenerateForm(){
         del.className = 'chip-del'; del.title = 'Xoá file này'; del.textContent = '✕';
         chip.append(info, del);
         del.addEventListener('click', async () => {
-          uploadedFilesQueue.splice(idx, 1);
-          await saveLessonSources(currentLessonId, uploadedFilesQueue);
-          renderQueueList();
-          updateQuotaUI();
+          try{
+            if(!isPro()) await recordDocumentDeletion(1);
+            uploadedFilesQueue.splice(idx, 1);
+            await saveLessonSources(currentLessonId, uploadedFilesQueue);
+            renderQueueList();
+            await updateQuotaUI();
+          }catch(err){
+            console.error(err);
+            alert(err?.message || 'Không thể xóa tài liệu lúc này.');
+          }
         });
         queueEl.appendChild(chip);
       });
@@ -2274,24 +2383,77 @@ function renderGenerateForm(){
       const n = f.name.toLowerCase();
       return supported.has(f.type) || /\.(pdf|jpe?g|png|webp|heic|heif)$/.test(n);
     });
+
     let quotaSlots = Infinity;
+    let initialUnusedSlots = Infinity;
+    let replacementAllowance = Infinity;
+
     if(!isPro()){
       const totalDocs = await totalDocumentCount();
       quotaSlots = Math.max(0, FREE_LIMITS.documents - totalDocs);
+
       if(quotaSlots <= 0){
-        alert(quotaMessage('tài liệu', totalDocs, FREE_LIMITS.documents));
+        alert(quotaMessage('tài liệu đang lưu', totalDocs, FREE_LIMITS.documents));
+        return;
+      }
+
+      accountDocumentCycle = normalizeDocumentCycle(accountDocumentCycle);
+
+      // Các ô trống do người dùng xóa tài liệu sẽ được tính là upload thay thế.
+      const replacementSlots = Math.min(accountDocumentCycle.pendingDeletes, quotaSlots);
+      initialUnusedSlots = Math.max(0, quotaSlots - replacementSlots);
+      replacementAllowance = Math.max(
+        0,
+        FREE_LIMITS.documentReuploads - accountDocumentCycle.reuploads
+      );
+
+      if(initialUnusedSlots <= 0 && replacementSlots > 0 && replacementAllowance <= 0){
+        alert('Bạn đã đạt giới hạn upload tài liệu');
         return;
       }
     }
-    const validFiles = candidates.filter(f => f.size <= MAX_FILE_SIZE).slice(0, Math.min(Math.max(0, MAX_FILES - uploadedFilesQueue.length), quotaSlots));
+
+    const roomInLesson = Math.max(0, MAX_FILES - uploadedFilesQueue.length);
+    const uniqueCandidates = candidates
+      .filter(f => f.size <= MAX_FILE_SIZE)
+      .filter(f => !uploadedFilesQueue.some(item => item.name === f.name && item.size === f.size));
+
+    let allowedCount = Math.min(roomInLesson, quotaSlots);
+
+    if(!isPro()){
+      const replacementSlots = Math.max(0, quotaSlots - initialUnusedSlots);
+      allowedCount = Math.min(
+        allowedCount,
+        initialUnusedSlots + Math.min(replacementSlots, replacementAllowance)
+      );
+    }
+
+    const validFiles = uniqueCandidates.slice(0, Math.max(0, allowedCount));
+
     if(validFiles.length === 0){
-      alert("Không có tài liệu hợp lệ. Hỗ trợ PDF, JPG/JPEG, PNG, WEBP, HEIC/HEIF; tối đa 10 file, mỗi file ≤ 20 MB.");
+      if(!isPro() && replacementAllowance <= 0 && accountDocumentCycle.pendingDeletes > 0){
+        alert('Bạn đã đạt giới hạn upload tài liệu');
+      }else{
+        alert("Không có tài liệu hợp lệ. Hỗ trợ PDF, JPG/JPEG, PNG, WEBP, HEIC/HEIF; tối đa 10 file, mỗi file ≤ 20 MB.");
+      }
       return;
     }
-    status.innerHTML = `<span class="loader"><span class="spinner"></span> Đang nạp ${validFiles.length} tài liệu...</span>`;
 
-    for (const file of validFiles) {
-      if(!uploadedFilesQueue.some(item => item.name === file.name && item.size === file.size)){
+    const replacementNeeded = isPro()
+      ? 0
+      : Math.max(0, validFiles.length - initialUnusedSlots);
+
+    let reservedReplacement = 0;
+
+    try{
+      if(replacementNeeded > 0){
+        const result = await reserveDocumentReuploads(replacementNeeded);
+        reservedReplacement = result?.reserved || 0;
+      }
+
+      status.innerHTML = `<span class="loader"><span class="spinner"></span> Đang nạp ${validFiles.length} tài liệu...</span>`;
+
+      for (const file of validFiles) {
         await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -2299,19 +2461,43 @@ function renderGenerateForm(){
             let mimeType = file.type || '';
             if(!mimeType){
               const n=file.name.toLowerCase();
-              mimeType = n.endsWith('.pdf') ? 'application/pdf' : n.endsWith('.png') ? 'image/png' : n.endsWith('.webp') ? 'image/webp' : n.endsWith('.heic') ? 'image/heic' : n.endsWith('.heif') ? 'image/heif' : 'image/jpeg';
+              mimeType = n.endsWith('.pdf') ? 'application/pdf'
+                : n.endsWith('.png') ? 'image/png'
+                : n.endsWith('.webp') ? 'image/webp'
+                : n.endsWith('.heic') ? 'image/heic'
+                : n.endsWith('.heif') ? 'image/heif'
+                : 'image/jpeg';
             }
-            uploadedFilesQueue.push({ name:file.name, size:file.size, mimeType, base64:dataUrl.split(',')[1] });
+            uploadedFilesQueue.push({
+              name:file.name,
+              size:file.size,
+              mimeType,
+              base64:dataUrl.split(',')[1]
+            });
             resolve();
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
       }
+
+      await saveLessonSources(currentLessonId, uploadedFilesQueue);
+      renderQueueList();
+      await updateQuotaUI();
+
+      if(!isPro() && uniqueCandidates.length > validFiles.length &&
+         accountDocumentCycle.reuploads >= FREE_LIMITS.documentReuploads){
+        alert('Bạn đã đạt giới hạn upload tài liệu');
+      }
+    }catch(err){
+      if(reservedReplacement > 0){
+        await refundDocumentReuploads(reservedReplacement);
+      }
+      console.error(err);
+      alert(err?.code === 'document-reupload-limit'
+        ? 'Bạn đã đạt giới hạn upload tài liệu'
+        : (err?.message || 'Không thể upload tài liệu lúc này.'));
     }
-    await saveLessonSources(currentLessonId, uploadedFilesQueue);
-    renderQueueList();
-    updateQuotaUI();
   }
 
   function syncPastedTextToContent(){
