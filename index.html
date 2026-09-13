@@ -279,16 +279,17 @@
             <div class="admin-panel-title">🛡️ Quản trị viên</div>
             <span class="plan-badge pro">ADMIN</span>
           </div>
+          <div style="font-size:11px;font-weight:800;color:var(--ink-2);margin-bottom:6px;">Cấp quyền theo email</div>
           <div class="admin-search-row">
-            <input type="email" id="adminSearchEmail" placeholder="Tìm email khách hàng">
-            <button class="btn small" id="adminSearchBtn" type="button">Tìm</button>
+            <input type="email" id="adminSearchEmail" placeholder="Nhập email khách hàng">
+            <button class="btn small" id="adminSearchBtn" type="button">Kiểm tra</button>
           </div>
           <div id="adminResult" class="admin-result">
             <div id="adminResultEmail" class="email"></div>
             <div id="adminResultMeta" class="meta"></div>
             <div class="admin-actions">
-              <button class="btn small warm" id="grantPro30Btn" type="button">+30 ngày</button>
-              <button class="btn small warm" id="grantPro90Btn" type="button">+90 ngày</button>
+              <button class="btn small warm" id="grantPro30Btn" type="button">Cấp Pro 30 ngày</button>
+              <button class="btn small warm" id="grantPro90Btn" type="button">Cấp Pro 90 ngày</button>
               <button class="btn small" id="cancelProBtn" type="button">Hủy Pro</button>
             </div>
           </div>
@@ -312,7 +313,7 @@
           <div id="adminAccountList" class="admin-account-list">
             <div class="admin-empty">Đang tải danh sách tài khoản…</div>
           </div>
-          <div id="adminStatus" class="admin-status">Bạn có thể tìm email hoặc quản lý trực tiếp trong danh sách bên dưới.</div>
+          <div id="adminStatus" class="admin-status">Nhập email khách hàng rồi bấm Cấp Pro 30 ngày / 90 ngày. Bộ lọc danh sách không ảnh hưởng đến thao tác cấp quyền theo email.</div>
         </div>
       </div>
 
@@ -1121,7 +1122,7 @@ async function adminFindUserByEmail(){
     if(localMatches.length){
       const hit = localMatches[0];
       renderAdminUser({ id: hit.uid, data: ()=>hit.data });
-      setAdminStatus(`Đã tìm thấy ${localMatches.length} tài khoản khớp chính xác email này.`);
+      setAdminStatus(`Đã tìm thấy tài khoản ${email}. Bạn có thể cấp Pro 30 ngày, 90 ngày hoặc hủy Pro.`);
       return;
     }
 
@@ -1140,7 +1141,7 @@ async function adminFindUserByEmail(){
     });
     adminRenderAccountList();
     renderAdminUser(q.docs[0]);
-    setAdminStatus(`Đã tìm thấy ${docs.length} tài khoản khớp chính xác email này.`);
+    setAdminStatus(`Đã tìm thấy tài khoản ${email}. Bạn có thể cấp Pro 30 ngày, 90 ngày hoặc hủy Pro.`);
   }catch(err){
     console.error('adminFindUserByEmail error:', err);
     setAdminStatus('Không thể tìm tài khoản: ' + (err?.message || 'Không xác định'), true);
@@ -1174,13 +1175,70 @@ async function adminGrantProDaysForUid(uid, days){
     setAdminStatus('Gia hạn Pro thất bại: ' + (err?.message || 'Không xác định'), true);
   }
 }
+async function adminResolveUidByEmail(){
+  const input = document.getElementById('adminSearchEmail');
+  const email = String(input?.value || '').trim().toLowerCase();
+
+  if(!email){
+    setAdminStatus('Hãy nhập email khách hàng cần cấp quyền.', true);
+    return null;
+  }
+
+  // Tìm trong danh sách đã tải trước; không phụ thuộc bộ lọc Free/Pro.
+  let hit = adminAllUsers.find(
+    x => String(x.data?.email || '').trim().toLowerCase() === email
+  );
+
+  if(hit){
+    renderAdminUser({ id: hit.uid, data: ()=>hit.data });
+    return hit.uid;
+  }
+
+  // Nếu chưa có trong cache, truy vấn trực tiếp Firestore theo email.
+  try{
+    const q = await db.collection('users').where('email', '==', email).limit(2).get();
+    if(q.empty){
+      renderAdminUser(null);
+      setAdminStatus(`Không tìm thấy tài khoản đã đăng ký với email ${email}.`, true);
+      return null;
+    }
+
+    const doc = q.docs[0];
+    hit = { uid: doc.id, data: doc.data() || {} };
+
+    if(!adminAllUsers.some(x => x.uid === hit.uid)){
+      adminAllUsers.push(hit);
+    }else{
+      const idx = adminAllUsers.findIndex(x => x.uid === hit.uid);
+      adminAllUsers[idx] = hit;
+    }
+
+    renderAdminUser(doc);
+    adminRenderAccountList();
+    return hit.uid;
+  }catch(err){
+    console.error('adminResolveUidByEmail error:', err);
+    setAdminStatus('Không thể tìm tài khoản theo email: ' + (err?.message || 'Không xác định'), true);
+    return null;
+  }
+}
+
+async function adminGrantProByEmail(days){
+  const uid = await adminResolveUidByEmail();
+  if(!uid) return;
+  await adminGrantProDaysForUid(uid, days);
+
+  // Luôn giữ kết quả đang thao tác, không để bộ lọc ẩn tài khoản vừa cấp.
+  const input = document.getElementById('adminSearchEmail');
+  adminSearchTerm = String(input?.value || '').trim().toLowerCase();
+  adminRenderAccountList();
+}
+
 async function adminGrantPro30(){
-  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
-  await adminGrantProDaysForUid(adminSelectedUser.uid, 30);
+  await adminGrantProByEmail(30);
 }
 async function adminGrantPro90(){
-  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
-  await adminGrantProDaysForUid(adminSelectedUser.uid, 90);
+  await adminGrantProByEmail(90);
 }
 
 async function adminCancelProForUid(uid){
@@ -1203,8 +1261,13 @@ async function adminCancelProForUid(uid){
   }
 }
 async function adminCancelPro(){
-  if(!adminSelectedUser?.uid){ setAdminStatus('Hãy tìm tài khoản trước.', true); return; }
-  await adminCancelProForUid(adminSelectedUser.uid);
+  const uid = await adminResolveUidByEmail();
+  if(!uid) return;
+  await adminCancelProForUid(uid);
+
+  const input = document.getElementById('adminSearchEmail');
+  adminSearchTerm = String(input?.value || '').trim().toLowerCase();
+  adminRenderAccountList();
 }
 
 function adminRenderAccountList(){
