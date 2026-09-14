@@ -110,7 +110,14 @@
   .forgot-password-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
   .forgot-password-status{font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.45}
   .api-box a{display:block;font-size:11px;color:var(--accent-dark);margin-top:5px;text-decoration:none;font-weight:600;}
-  .api-box a:hover{text-decoration:underline}.sync-status{font-size:11.5px;color:var(--muted);margin-top:7px;font-weight:600;min-height:16px;}
+  .api-box a:hover{text-decoration:underline}
+.sync-status{font-size:11.5px;color:var(--muted);margin-top:7px;font-weight:650;min-height:24px;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.42);border:1px solid transparent;transition:.18s ease}
+.sync-status.syncing{color:var(--accent-dark);background:rgba(221,247,245,.72);border-color:rgba(14,165,164,.12)}
+.sync-status.saved{color:var(--correct);background:rgba(228,247,238,.70);border-color:rgba(46,154,109,.12)}
+.sync-status.offline{color:#9A6400;background:rgba(255,243,217,.78);border-color:rgba(245,158,11,.16)}
+.sync-status.error{color:var(--wrong);background:rgba(253,237,239,.78);border-color:rgba(217,93,104,.14)}
+@media(max-width:820px){.sync-status{font-size:11px;line-height:1.35;padding:6px 8px}}
+
 
   #subjectList{gap:5px!important;}
   .subject-block{border-bottom:1px solid rgba(56,130,139,.10);padding-bottom:8px;margin-bottom:1px;}
@@ -637,13 +644,22 @@ async function changeCurrentUserPassword(){
   }
 }
 
-function setSyncMsg(msg, isErr = false) {
+function setSyncMsg(msg, isErr = false, state = '') {
   const el = document.getElementById('syncStatusLine');
-  if (el) {
-    el.textContent = msg;
-    const ok = msg.includes('Đã đồng bộ') || msg.includes('Đã sao lưu') || msg.includes('Kho dữ liệu mới');
-    el.style.color = isErr ? 'var(--wrong)' : (ok ? 'var(--correct)' : 'var(--muted)');
+  if (!el) return;
+
+  el.textContent = msg;
+  el.classList.remove('syncing','saved','offline','error');
+
+  let resolved = state;
+  if(!resolved){
+    if(isErr) resolved = 'error';
+    else if(msg.includes('Đang')) resolved = 'syncing';
+    else if(msg.includes('Mất kết nối') || msg.includes('offline')) resolved = 'offline';
+    else if(msg.includes('Đã đồng bộ') || msg.includes('Đã sao lưu') || msg.includes('Kho dữ liệu mới') || msg.includes('Đã lưu')) resolved = 'saved';
   }
+
+  if(resolved) el.classList.add(resolved);
 }
 
 /* ===== FREE / PRO & QUOTA ===== */
@@ -1211,7 +1227,15 @@ async function syncFromCloud() {
   const uidValue = user.uid;
   if (!uidValue) return;
 
-  setSyncMsg('☁️ Đang tải kho dữ liệu...');
+  if(!navigator.onLine){
+    setSyncMsg('📴 Mất kết nối — đang dùng dữ liệu đã lưu trên máy', false, 'offline');
+    renderSidebar();
+    renderMain();
+    await updateQuotaUI();
+    return;
+  }
+
+  setSyncMsg('☁️ Đang tải kho dữ liệu...', false, 'syncing');
 
   try {
     activeUid = uidValue;
@@ -1225,7 +1249,7 @@ async function syncFromCloud() {
     // ưu tiên sao lưu cache đó lên UID mới thay vì tạo một kho trống.
     const cloudDataBefore = doc.exists ? (doc.data() || {}) : {};
     if (!hasMeaningfulCloudData(cloudDataBefore) && hasMeaningfulLocalData(uidValue)) {
-      await syncToCloud();
+      await syncToCloud({immediate:true, silent:true});
       doc = await db.collection('users').doc(uidValue).get();
     }
 
@@ -1261,7 +1285,7 @@ async function syncFromCloud() {
       renderSidebar();
       renderMain();
       await updateQuotaUI();
-      setSyncMsg(`☁️ Đã đồng bộ (${uidValue.slice(0,6)})`);
+      setSyncMsg(`☁️ Đã đồng bộ (${uidValue.slice(0,6)})`, false, 'saved');
       return;
     }
 
@@ -1290,23 +1314,46 @@ async function syncFromCloud() {
     }, { merge: true });
     await updateQuotaUI();
 
-    setSyncMsg(`☁️ Kho dữ liệu mới (${uidValue.slice(0,6)})`);
+    setSyncMsg(`☁️ Kho dữ liệu mới (${uidValue.slice(0,6)})`, false, 'saved');
   } catch (err) {
     console.error(err);
-    setSyncMsg('☁️ Lỗi đồng bộ: ' + (err?.message || 'Không xác định'), true);
+    setSyncMsg('☁️ Không tải được cloud — đang dùng dữ liệu trên máy', true, 'error');
   }
 }
 
-async function syncToCloud() {
-  if (!db || !auth) { setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true); return; }
+async function performCloudSync({silent=false}={}) {
+  if (!db || !auth) {
+    if(!silent) setSyncMsg('☁️ Không tải được dịch vụ đồng bộ', true, 'error');
+    return false;
+  }
+
   const user = auth.currentUser;
-  if (!user) { setSyncMsg('👤 Hãy đăng nhập để lưu lên cloud', true); return; }
+  if (!user) {
+    if(!silent) setSyncMsg('👤 Hãy đăng nhập để lưu lên cloud', true, 'error');
+    return false;
+  }
+
+  if(!navigator.onLine){
+    cloudSyncQueued = true;
+    if(!silent) setSyncMsg('📴 Mất kết nối — dữ liệu đã lưu trên máy', false, 'offline');
+    return false;
+  }
 
   const uidValue = user.uid;
-  if (!uidValue) return;
+  if (!uidValue) return false;
   activeUid = uidValue;
 
-  try {
+  if(cloudSyncInFlight){
+    cloudSyncQueued = true;
+    return cloudSyncInFlight;
+  }
+
+  const run = (async()=>{
+    if(!silent) setSyncMsg('☁️ Đang đồng bộ...', false, 'syncing');
+    let lastErr = null;
+
+    for(let attempt=0; attempt<3; attempt++){
+      try {
     accountUsage = normalizeUsage(accountUsage);
     const payload = {
       email: normalizeAccountEmail(user.email),
@@ -1340,13 +1387,102 @@ async function syncToCloud() {
       }
     }
 
-    await db.collection('users').doc(uidValue).set(payload, { merge: true });
-    setSyncMsg(`☁️ Đã sao lưu (${uidValue.slice(0,6)})`);
-  } catch (err) {
-    console.error(err);
-    setSyncMsg('☁️ Lưu thất bại: ' + (err?.message || 'Không xác định'), true);
+        await db.collection('users').doc(uidValue).set(payload, { merge: true });
+        if(!silent) setSyncMsg(`☁️ Đã sao lưu (${uidValue.slice(0,6)})`, false, 'saved');
+        cloudSyncQueued = false;
+        return true;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`Cloud sync attempt ${attempt+1}/3 failed`, err);
+        if(attempt < 2){
+          await new Promise(r=>setTimeout(r, 450 * Math.pow(2, attempt)));
+        }
+      }
+    }
+
+    if(!silent){
+      setSyncMsg('☁️ Chưa đồng bộ được — dữ liệu vẫn an toàn trên máy', true, 'error');
+    }
+    console.error('performCloudSync failed:', lastErr);
+    cloudSyncQueued = true;
+    return false;
+  })();
+
+  cloudSyncInFlight = run;
+  try{
+    return await run;
+  }finally{
+    cloudSyncInFlight = null;
+    if(cloudSyncQueued && navigator.onLine){
+      scheduleCloudSync(500);
+    }
   }
 }
+
+/* ===== LOCAL-FIRST + DEBOUNCE FIREBASE SYNC ===== */
+const CLOUD_SYNC_DELAY = 900;
+let cloudSyncTimer = null;
+let cloudSyncInFlight = null;
+let cloudSyncQueued = false;
+
+function scheduleCloudSync(delay=CLOUD_SYNC_DELAY){
+  cloudSyncQueued = true;
+  if(cloudSyncTimer) clearTimeout(cloudSyncTimer);
+
+  if(!navigator.onLine){
+    setSyncMsg('📴 Mất kết nối — dữ liệu đã lưu trên máy', false, 'offline');
+    return;
+  }
+
+  setSyncMsg('💾 Đã lưu trên máy • chờ đồng bộ', false, 'syncing');
+
+  cloudSyncTimer = setTimeout(async()=>{
+    cloudSyncTimer = null;
+    await performCloudSync();
+  }, Math.max(0, delay));
+}
+
+/**
+ * API tương thích với code cũ:
+ * - syncToCloud()              -> debounce, không chặn giao diện
+ * - syncToCloud({immediate:true}) -> đồng bộ ngay khi thật sự cần
+ */
+async function syncToCloud(options={}){
+  if(options?.immediate){
+    if(cloudSyncTimer){
+      clearTimeout(cloudSyncTimer);
+      cloudSyncTimer = null;
+    }
+    cloudSyncQueued = true;
+    return performCloudSync({silent:!!options.silent});
+  }
+
+  scheduleCloudSync();
+  return true;
+}
+
+window.addEventListener('offline', ()=>{
+  cloudSyncQueued = true;
+  setSyncMsg('📴 Mất kết nối — dữ liệu đã lưu trên máy', false, 'offline');
+});
+
+window.addEventListener('online', ()=>{
+  setSyncMsg('🌐 Đã có mạng • đang đồng bộ...', false, 'syncing');
+  if(cloudSyncQueued) scheduleCloudSync(150);
+});
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden' && cloudSyncQueued && navigator.onLine){
+    // Cố gắng flush sớm khi người dùng chuyển app/tab.
+    performCloudSync({silent:true});
+  }
+});
+
+window.addEventListener('pagehide', ()=>{
+  if(cloudSyncQueued && navigator.onLine){
+    performCloudSync({silent:true});
+  }
+});
 
 /* 2. LOCAL STORAGE VÀ STATE */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -1521,6 +1657,7 @@ async function saveLessonSources(lessonId = currentLessonId, sources = uploadedF
     return true;
   }catch(err){
     console.error('saveLessonSources error:', err);
+    setSyncMsg('⚠️ Không lưu được tài liệu trên thiết bị', true, 'error');
     return false;
   }
 }
@@ -2983,7 +3120,7 @@ YÊU CẦU:
     setStore('lesson:'+currentLessonId, lessonObj);
     currentLesson = lessonObj;
     activeTab = 'mindmap';
-    await syncToCloud();
+    syncToCloud();
     renderMain();
     if(isMobileBrowserView()){
       replaceCurrentMobileHistory('mindmap');
@@ -3169,7 +3306,7 @@ YÊU CẦU:
     }));
 
     setStore('lesson:' + currentLessonId, currentLesson);
-    await syncToCloud();
+    syncToCloud();
 
     quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
     renderMain();
@@ -4280,7 +4417,7 @@ async function saveAttempt(questions){
   const prev = getStore('attempts:'+currentLessonId) || [];
   prev.unshift(attempt);
   setStore('attempts:'+currentLessonId, prev);
-  await syncToCloud();
+  syncToCloud();
 }
 
 function renderQuizScore(container, questions){
