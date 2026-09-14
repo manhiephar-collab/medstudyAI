@@ -657,6 +657,7 @@ const FREE_LIMITS = Object.freeze({
 });
 let accountPlan = 'free';
 let accountProUntil = null;
+let proExpiryTimer = null;
 let accountUsage = { month: '', quizQuestions: 0, aiQuestions: 0 };
 let accountDocumentCycle = { reuploads: 0, pendingDeletes: 0 };
 
@@ -683,6 +684,74 @@ function formatProUntil(value){
   if(!ms) return 'Không thời hạn';
   return new Date(ms).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
+
+function clearProExpiryTimer(){
+  if(proExpiryTimer){
+    clearTimeout(proExpiryTimer);
+    proExpiryTimer = null;
+  }
+}
+
+async function persistExpiredProAsFree(){
+  const user = auth?.currentUser;
+  if(!user || !db) return false;
+  try{
+    await db.collection('users').doc(user.uid).update({
+      plan: 'free',
+      proUntil: null,
+      updatedAt: Date.now()
+    });
+    return true;
+  }catch(err){
+    // Nếu Rules đang chặn người dùng tự sửa plan/proUntil,
+    // quyền Pro vẫn bị khóa ngay trong ứng dụng khi hết hạn.
+    if(err?.code !== 'permission-denied'){
+      console.warn('persistExpiredProAsFree error:', err);
+    }
+    return false;
+  }
+}
+
+async function expireCurrentProNow({persist=true, showStatus=true}={}){
+  const until = proUntilMillis(accountProUntil);
+  if(accountPlan !== 'pro' || !until || until > Date.now()) return false;
+
+  clearProExpiryTimer();
+  accountPlan = 'free';
+  accountProUntil = null;
+
+  if(persist) await persistExpiredProAsFree();
+
+  try{ await updateQuotaUI(); }catch(_){}
+  if(showStatus) setSyncMsg('⏳ Gói Pro đã hết hạn. Tài khoản đã tự động chuyển về Free.');
+  return true;
+}
+
+function scheduleProExpiry(value){
+  clearProExpiryTimer();
+  const until = proUntilMillis(value);
+  if(accountPlan !== 'pro' || !until) return;
+
+  const remaining = until - Date.now();
+  if(remaining <= 0){
+    setTimeout(()=>expireCurrentProNow({persist:true, showStatus:true}), 0);
+    return;
+  }
+
+  // setTimeout của trình duyệt chỉ an toàn đến khoảng 24,8 ngày.
+  const MAX_DELAY = 2147483000;
+  const delay = Math.min(remaining + 750, MAX_DELAY);
+
+  proExpiryTimer = setTimeout(async ()=>{
+    const currentUntil = proUntilMillis(accountProUntil);
+    if(accountPlan === 'pro' && currentUntil && currentUntil <= Date.now()){
+      await expireCurrentProNow({persist:true, showStatus:true});
+    }else{
+      scheduleProExpiry(accountProUntil);
+    }
+  }, delay);
+}
+
 
 function currentMonthKey(){
   const d = new Date();
@@ -722,6 +791,7 @@ async function recordDocumentDeletion(amount=1){
     if(cloudPlanIsActive(data)){
       accountPlan='pro';
       accountProUntil=data.proUntil || null;
+      scheduleProExpiry(accountProUntil);
       return;
     }
 
@@ -750,6 +820,7 @@ async function reserveDocumentReuploads(amount=1){
     if(cloudPlanIsActive(data)){
       accountPlan='pro';
       accountProUntil=data.proUntil || null;
+      scheduleProExpiry(accountProUntil);
       return;
     }
 
@@ -848,6 +919,14 @@ function restorePlanCollapsed(){
 }
 
 async function updateQuotaUI(){
+  const until = proUntilMillis(accountProUntil);
+  if(accountPlan === 'pro' && until && until <= Date.now()){
+    clearProExpiryTimer();
+    accountPlan = 'free';
+    accountProUntil = null;
+    persistExpiredProAsFree();
+  }
+
   const box=document.getElementById('planQuotaBox');
   if(!box) return;
   if(!auth?.currentUser){ box.style.display='none'; return; }
@@ -895,6 +974,7 @@ async function reserveMonthlyQuota(kind, amount=1){
     if(cloudPlanIsActive(data)){
       accountPlan='pro';
       accountProUntil=data.proUntil || null;
+      scheduleProExpiry(accountProUntil);
       return;
     }
     const usage=normalizeUsage(data.usage);
@@ -1106,8 +1186,10 @@ async function recoverLegacyApiKeyCloudData(firebaseUid, apiKey) {
 }
 
 function resetUiForAccountSwitch() {
+  clearProExpiryTimer();
   toc = { subjects: [], lessonsBySubject: {} };
   accountPlan = 'free';
+  accountProUntil = null;
   accountUsage = { month: currentMonthKey(), quizQuestions:0, aiQuestions:0 };
   accountDocumentCycle = { reuploads:0, pendingDeletes:0 };
   openSubjects.clear();
@@ -1154,6 +1236,16 @@ async function syncFromCloud() {
       const data = doc.data() || {};
       accountProUntil = data.proUntil || null;
       accountPlan = cloudPlanIsActive(data) ? 'pro' : 'free';
+
+      const storedProUntil = proUntilMillis(data.proUntil);
+      if(data.plan === 'pro' && storedProUntil && storedProUntil <= Date.now()){
+        accountPlan = 'free';
+        accountProUntil = null;
+        await persistExpiredProAsFree();
+      }else if(accountPlan === 'pro'){
+        scheduleProExpiry(accountProUntil);
+      }
+
       accountUsage = normalizeUsage(data.usage);
       accountDocumentCycle = normalizeDocumentCycle(data.documentCycle);
       toc = data.toc || { subjects: [], lessonsBySubject: {} };
@@ -1179,6 +1271,7 @@ async function syncFromCloud() {
     renderSidebar();
     renderMain();
 
+    clearProExpiryTimer();
     accountPlan = 'free';
     accountProUntil = null;
     accountUsage = normalizeUsage(null);
@@ -1266,6 +1359,98 @@ let currentLessonId = null;
 let currentLesson = null;
 let activeTab = 'mindmap';
 let quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
+
+let mobileHistoryRestoring = false;
+
+function isMobileBrowserView(){
+  return window.matchMedia('(max-width: 820px)').matches;
+}
+
+function mobileViewName(){
+  if(!currentLessonId) return 'home';
+  if(!currentLesson) return 'materials';
+  return activeTab || 'mindmap';
+}
+
+function buildMobileHistoryState(view = mobileViewName()){
+  return {
+    medstudyMobileNav: true,
+    view,
+    subjectId: currentSubjectId || null,
+    lessonId: currentLessonId || null,
+    tab: (view === 'mindmap' || view === 'quiz' || view === 'history') ? view : (activeTab || 'mindmap')
+  };
+}
+
+function replaceCurrentMobileHistory(view = mobileViewName()){
+  if(!isMobileBrowserView() || mobileHistoryRestoring) return;
+  try{
+    history.replaceState(buildMobileHistoryState(view), '', location.href);
+  }catch(_){}
+}
+
+function pushMobileHistory(view){
+  if(!isMobileBrowserView() || mobileHistoryRestoring) return;
+  replaceCurrentMobileHistory(mobileViewName());
+  try{
+    history.pushState(buildMobileHistoryState(view), '', location.href);
+  }catch(_){}
+}
+
+function restoreMobileHistoryState(state){
+  if(!isMobileBrowserView() || !state?.medstudyMobileNav) return false;
+
+  mobileHistoryRestoring = true;
+  try{
+    if(state.subjectId) currentSubjectId = state.subjectId;
+    if(state.lessonId) currentLessonId = state.lessonId;
+
+    const view = state.view || state.tab || 'mindmap';
+
+    if(!currentLessonId){
+      currentLesson = null;
+      activeTab = 'mindmap';
+      uploadedFilesQueue = [];
+      renderSidebar();
+      renderMain();
+      return true;
+    }
+
+    if(view === 'materials'){
+      currentLesson = null;
+      activeTab = 'mindmap';
+      uploadedFilesQueue = [];
+    }else{
+      const saved = getStore('lesson:' + currentLessonId);
+      currentLesson = saved || null;
+
+      if(currentLesson){
+        activeTab = ['mindmap','quiz','history'].includes(view) ? view : 'mindmap';
+        if(activeTab === 'quiz'){
+          quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
+        }
+      }else{
+        activeTab = 'mindmap';
+      }
+    }
+
+    renderSidebar();
+    renderMain();
+
+    requestAnimationFrame(()=>{
+      const main = document.getElementById('main');
+      if(main) main.scrollIntoView({behavior:'auto', block:'start'});
+    });
+    return true;
+  } finally {
+    setTimeout(()=>{ mobileHistoryRestoring = false; }, 0);
+  }
+}
+
+window.addEventListener('popstate', (event)=>{
+  if(!isMobileBrowserView()) return;
+  restoreMobileHistoryState(event.state);
+});
 
 let uploadedFilesQueue = [];
 let currentMmInstance = null;
@@ -1599,9 +1784,22 @@ async function adminGrantProDaysForUid(uid, days){
       });
     });
     const fresh = await ref.get();
+    if(auth?.currentUser?.uid === uid){
+      clearProExpiryTimer();
+      accountPlan = 'free';
+      accountProUntil = null;
+      await updateQuotaUI();
+    }
     if(adminSelectedUser?.uid === uid) renderAdminUser(fresh);
     await adminLoadAllUsers(false);
-    setAdminStatus(`✅ Đã gia hạn Pro ${days} ngày đến ${formatProUntil(fresh.data()?.proUntil)}.`);
+    const freshData = fresh.data() || {};
+    if(auth?.currentUser?.uid === uid){
+      accountPlan = cloudPlanIsActive(freshData) ? 'pro' : 'free';
+      accountProUntil = freshData.proUntil || null;
+      if(accountPlan === 'pro') scheduleProExpiry(accountProUntil);
+      await updateQuotaUI();
+    }
+    setAdminStatus(`✅ Đã gia hạn Pro ${days} ngày đến ${formatProUntil(freshData.proUntil)}.`);
   }catch(err){
     console.error('adminGrantProDaysForUid error:', err);
     setAdminStatus('Gia hạn Pro thất bại: ' + (err?.message || 'Không xác định'), true);
@@ -2134,6 +2332,9 @@ function renderSidebar(){
           uploadedFilesQueue = [];
           currentLesson = getStore('lesson:'+lesson.id);
           renderSidebar(); renderMain();
+          if(isMobileBrowserView() && currentLesson){
+            replaceCurrentMobileHistory('mindmap');
+          }
         });
 
         lessonList.appendChild(item);
@@ -2241,10 +2442,16 @@ function renderMain(){
     const t = document.createElement('div');
     t.className = 'tab' + (activeTab===key ? ' active' : '');
     t.textContent = toNFC(label);
-    t.addEventListener('click', () => { 
-      activeTab = key; 
-      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false,reviewMode:false,reviewQuestions:[]}; } 
-      renderMain(); 
+    t.addEventListener('click', () => {
+      if(key === activeTab) return;
+
+      if(isMobileBrowserView()){
+        pushMobileHistory(key);
+      }
+
+      activeTab = key;
+      if(key==='quiz'){ quiz={index:0,answers:[],started:false,done:false,reviewMode:false,reviewQuestions:[]}; }
+      renderMain();
     });
     tabs.appendChild(t);
   });
@@ -2775,8 +2982,12 @@ YÊU CẦU:
     };
     setStore('lesson:'+currentLessonId, lessonObj);
     currentLesson = lessonObj;
+    activeTab = 'mindmap';
     await syncToCloud();
     renderMain();
+    if(isMobileBrowserView()){
+      replaceCurrentMobileHistory('mindmap');
+    }
   }catch(err){
     console.error(err);
     if(quizReservation?.reserved && quizReservation.amount){
@@ -3933,6 +4144,10 @@ function renderMindmap(container){
   wrap.querySelector('#exportPdfBtn').onclick = exportMindmapPdf;
 
   wrap.querySelector('#regenBtn').addEventListener('click', () => {
+    if(isMobileBrowserView()){
+      pushMobileHistory('materials');
+    }
+
     // Không xoá dữ liệu bài học ngay. Chỉ mở màn hình quản lý tài liệu.
     // Tài liệu đã lưu sẽ tự nạp lại; người dùng có thể thêm/bớt rồi bấm Tạo để cập nhật bài.
     currentLesson = null;
