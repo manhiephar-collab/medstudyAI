@@ -201,6 +201,9 @@
 .admin-status{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45}
 .admin-tools{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
 .admin-tools select{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 9px;color:var(--ink-2);font:inherit;font-size:10.5px}
+.admin-maintenance-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 9px;border:1px dashed rgba(14,165,164,.18);border-radius:11px;background:rgba(244,250,251,.56)}
+.admin-maintenance-note{font-size:9.7px;color:var(--muted);line-height:1.35}
+@media(max-width:520px){.admin-maintenance-row{align-items:stretch}.admin-maintenance-row .btn{width:100%}.admin-maintenance-note{width:100%;text-align:center}}
 .admin-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px}
 .admin-list-head strong{font-size:11px;color:var(--ink-2)}
 .admin-list-count{font-size:10px;color:var(--muted)}
@@ -395,6 +398,10 @@
               <option value="expiry-desc">Hết hạn muộn nhất</option>
               <option value="email-asc">Email A → Z</option>
             </select>
+          </div>
+          <div class="admin-maintenance-row">
+            <button class="btn small ghost" id="cleanupExpiredProBtn" type="button">🧹 Dọn Pro hết hạn</button>
+            <span class="admin-maintenance-note">Không cần Cloud Function • dùng Spark miễn phí</span>
           </div>
           <div class="admin-list-head">
             <strong>Danh sách tài khoản</strong>
@@ -663,6 +670,11 @@ function setSyncMsg(msg, isErr = false, state = '') {
 }
 
 /* ===== FREE / PRO & QUOTA ===== */
+/* ===== MÔ HÌNH SPARK MIỄN PHÍ =====
+   Quyền PRO chỉ hợp lệ khi plan='pro' và proUntil còn hạn.
+   Không cần Cloud Function / Billing.
+   Admin có thể dọn tài khoản hết hạn về FREE bằng nút trong bảng quản trị.
+*/
 const FREE_LIMITS = Object.freeze({
   subjects: 5,
   lessons: 6,
@@ -692,8 +704,7 @@ function proUntilMillis(value){
 function cloudPlanIsActive(data){
   if(!data || data.plan !== 'pro') return false;
   const until = proUntilMillis(data.proUntil);
-  // Tương thích tài khoản Pro cũ chưa có proUntil: xem là Pro không thời hạn.
-  return !until || until > Date.now();
+  return !!until && until > Date.now();
 }
 function formatProUntil(value){
   const ms = proUntilMillis(value);
@@ -708,27 +719,7 @@ function clearProExpiryTimer(){
   }
 }
 
-async function persistExpiredProAsFree(){
-  const user = auth?.currentUser;
-  if(!user || !db) return false;
-  try{
-    await db.collection('users').doc(user.uid).update({
-      plan: 'free',
-      proUntil: null,
-      updatedAt: Date.now()
-    });
-    return true;
-  }catch(err){
-    // Nếu Rules đang chặn người dùng tự sửa plan/proUntil,
-    // quyền Pro vẫn bị khóa ngay trong ứng dụng khi hết hạn.
-    if(err?.code !== 'permission-denied'){
-      console.warn('persistExpiredProAsFree error:', err);
-    }
-    return false;
-  }
-}
-
-async function expireCurrentProNow({persist=true, showStatus=true}={}){
+async function expireCurrentProNow({showStatus=true}={}){
   const until = proUntilMillis(accountProUntil);
   if(accountPlan !== 'pro' || !until || until > Date.now()) return false;
 
@@ -736,10 +727,8 @@ async function expireCurrentProNow({persist=true, showStatus=true}={}){
   accountPlan = 'free';
   accountProUntil = null;
 
-  if(persist) await persistExpiredProAsFree();
-
   try{ await updateQuotaUI(); }catch(_){}
-  if(showStatus) setSyncMsg('⏳ Gói Pro đã hết hạn. Tài khoản đã tự động chuyển về Free.');
+  if(showStatus) setSyncMsg('⏳ Gói Pro đã hết hạn. Tài khoản đã chuyển về Free.');
   return true;
 }
 
@@ -750,7 +739,7 @@ function scheduleProExpiry(value){
 
   const remaining = until - Date.now();
   if(remaining <= 0){
-    setTimeout(()=>expireCurrentProNow({persist:true, showStatus:true}), 0);
+    setTimeout(()=>expireCurrentProNow({showStatus:true}), 0);
     return;
   }
 
@@ -761,7 +750,7 @@ function scheduleProExpiry(value){
   proExpiryTimer = setTimeout(async ()=>{
     const currentUntil = proUntilMillis(accountProUntil);
     if(accountPlan === 'pro' && currentUntil && currentUntil <= Date.now()){
-      await expireCurrentProNow({persist:true, showStatus:true});
+      await expireCurrentProNow({showStatus:true});
     }else{
       scheduleProExpiry(accountProUntil);
     }
@@ -881,7 +870,10 @@ async function refundDocumentReuploads(amount=1){
   }
 }
 
-function isPro(){ return accountPlan === 'pro'; }
+function isPro(){
+  const until = proUntilMillis(accountProUntil);
+  return accountPlan === 'pro' && !!until && until > Date.now();
+}
 function totalLessonCount(){
   return Object.values(toc?.lessonsBySubject || {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
 }
@@ -936,11 +928,10 @@ function restorePlanCollapsed(){
 
 async function updateQuotaUI(){
   const until = proUntilMillis(accountProUntil);
-  if(accountPlan === 'pro' && until && until <= Date.now()){
+  if(accountPlan === 'pro' && (!until || until <= Date.now())){
     clearProExpiryTimer();
     accountPlan = 'free';
     accountProUntil = null;
-    persistExpiredProAsFree();
   }
 
   const box=document.getElementById('planQuotaBox');
@@ -1262,10 +1253,9 @@ async function syncFromCloud() {
       accountPlan = cloudPlanIsActive(data) ? 'pro' : 'free';
 
       const storedProUntil = proUntilMillis(data.proUntil);
-      if(data.plan === 'pro' && storedProUntil && storedProUntil <= Date.now()){
+      if(data.plan === 'pro' && (!storedProUntil || storedProUntil <= Date.now())){
         accountPlan = 'free';
         accountProUntil = null;
-        await persistExpiredProAsFree();
       }else if(accountPlan === 'pro'){
         scheduleProExpiry(accountProUntil);
       }
@@ -1716,7 +1706,7 @@ function expirySortValue(data, direction='asc'){
 function proRemainingLabel(data){
   if(!data || data.plan !== 'pro') return 'FREE';
   const ms = proUntilMillis(data.proUntil);
-  if(!ms) return 'PRO • Không thời hạn';
+  if(!ms) return 'PRO không hợp lệ • thiếu ngày hết hạn';
   const days = daysRemaining(data.proUntil);
   if(ms <= Date.now()) return `PRO đã hết hạn • ${formatProUntil(data.proUntil)}`;
   return `PRO còn ${days} ngày • đến ${formatProUntil(data.proUntil)}`;
@@ -1921,12 +1911,6 @@ async function adminGrantProDaysForUid(uid, days){
       });
     });
     const fresh = await ref.get();
-    if(auth?.currentUser?.uid === uid){
-      clearProExpiryTimer();
-      accountPlan = 'free';
-      accountProUntil = null;
-      await updateQuotaUI();
-    }
     if(adminSelectedUser?.uid === uid) renderAdminUser(fresh);
     await adminLoadAllUsers(false);
     const freshData = fresh.data() || {};
@@ -2045,9 +2029,15 @@ async function adminCancelProForUid(uid){
       updatedAt: Date.now()
     });
     const fresh = await ref.get();
+    if(auth?.currentUser?.uid === uid){
+      clearProExpiryTimer();
+      accountPlan = 'free';
+      accountProUntil = null;
+      await updateQuotaUI();
+    }
     if(adminSelectedUser?.uid === uid) renderAdminUser(fresh);
     await adminLoadAllUsers(false);
-    setAdminStatus('✅ Đã hủy Pro. Tài khoản sẽ trở về Free khi đồng bộ/tải lại.');
+    setAdminStatus('✅ Đã hủy Pro. Tài khoản đã trở về Free.');
   }catch(err){
     console.error('adminCancelProForUid error:', err);
     setAdminStatus('Hủy Pro thất bại: ' + (err?.message || 'Không xác định'), true);
@@ -2117,6 +2107,85 @@ function adminRenderAccountList(){
   }).join('');
 }
 
+
+async function adminCleanupExpiredPro(){
+  const btn = document.getElementById('cleanupExpiredProBtn');
+
+  if(!await currentUserIsAdmin()){
+    setAdminStatus('Bạn không có quyền quản trị.', true);
+    return;
+  }
+
+  // Tải mới trước khi dọn để tránh dùng cache admin cũ.
+  await adminLoadAllUsers(false);
+
+  const now = Date.now();
+  const expired = adminAllUsers.filter(item=>{
+    const d = item.data || {};
+    if(d.plan !== 'pro') return false;
+    const until = proUntilMillis(d.proUntil);
+    return !until || until <= now;
+  });
+
+  if(!expired.length){
+    setAdminStatus('✅ Không có tài khoản Pro hết hạn cần dọn.');
+    return;
+  }
+
+  const ok = confirm(
+    `Tìm thấy ${expired.length} tài khoản PRO đã hết hạn hoặc thiếu ngày hết hạn.\n\n` +
+    `Chuyển tất cả về FREE?`
+  );
+  if(!ok) return;
+
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = 'Đang dọn...';
+  }
+
+  try{
+    const CHUNK = 400;
+    let cleaned = 0;
+
+    for(let i=0; i<expired.length; i+=CHUNK){
+      const group = expired.slice(i, i+CHUNK);
+      const batch = db.batch();
+      const expiredAt = firebase.firestore.Timestamp.now();
+
+      group.forEach(item=>{
+        const ref = db.collection('users').doc(item.uid);
+        batch.update(ref, {
+          plan: 'free',
+          proUntil: null,
+          proExpiredAt: expiredAt,
+          updatedAt: Date.now()
+        });
+      });
+
+      await batch.commit();
+      cleaned += group.length;
+      setAdminStatus(`Đang dọn... ${cleaned}/${expired.length}`);
+    }
+
+    await adminLoadAllUsers(false);
+    if(adminSelectedUser?.uid){
+      const fresh = await db.collection('users').doc(adminSelectedUser.uid).get();
+      if(fresh.exists) renderAdminUser(fresh);
+      else renderAdminUser(null);
+    }
+
+    setAdminStatus(`✅ Đã chuyển ${cleaned} tài khoản Pro hết hạn về Free.`);
+  }catch(err){
+    console.error('adminCleanupExpiredPro error:', err);
+    setAdminStatus('Dọn Pro hết hạn thất bại: ' + (err?.message || 'Không xác định'), true);
+  }finally{
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = '🧹 Dọn Pro hết hạn';
+    }
+  }
+}
+
 async function adminLoadAllUsers(showStatus=true){
   const list = document.getElementById('adminAccountList');
   try{
@@ -2170,6 +2239,7 @@ async function init(){
   const adminToggleBtn = document.getElementById('adminToggleBtn');
   const adminSearchEmail = document.getElementById('adminSearchEmail');
   const adminSearchBtn = document.getElementById('adminSearchBtn');
+  const cleanupExpiredProBtn = document.getElementById('cleanupExpiredProBtn');
   const grantPro30Btn = document.getElementById('grantPro30Btn');
   const grantPro90Btn = document.getElementById('grantPro90Btn');
   const cancelProBtn = document.getElementById('cancelProBtn');
@@ -2282,6 +2352,7 @@ async function init(){
   planToggleBtn?.addEventListener('click', togglePlanBox);
   adminToggleBtn?.addEventListener('click', toggleAdminPanel);
   adminSearchBtn?.addEventListener('click', adminFindUserByEmail);
+  cleanupExpiredProBtn?.addEventListener('click', adminCleanupExpiredPro);
   adminSearchEmail?.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') adminFindUserByEmail();
   });
