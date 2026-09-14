@@ -1731,6 +1731,58 @@ async function loadLessonSourceArchiveCloud(lessonId=currentLessonId, {silent=tr
 }
 
 
+function buildLessonFallbackSource(lesson){
+  if(!lesson) return '';
+
+  const chunks = [];
+
+  const archive = String(lesson.sourceArchiveText || '').trim();
+  if(archive) chunks.push(archive);
+
+  const note = String(lesson.rawNoteText || '').trim();
+  if(note) chunks.push('GHI CHÚ NGUỒN:\n' + note);
+
+  const map = String(lesson.mindmapMarkdown || '').trim();
+  if(map) chunks.push('SƠ ĐỒ KIẾN THỨC ĐÃ ĐỒNG BỘ:\n' + map);
+
+  const qs = Array.isArray(lesson.questions) ? lesson.questions : [];
+  if(qs.length){
+    const quizText = qs.slice(0, 120).map((q, i)=>{
+      const opts = Array.isArray(q?.options) ? q.options : [];
+      const correct = Number.isInteger(q?.correctIndex) ? opts[q.correctIndex] : '';
+      return [
+        `Câu ${i+1}: ${String(q?.question || '').trim()}`,
+        correct ? `Đáp án đúng: ${correct}` : '',
+        q?.explanation ? `Giải thích: ${String(q.explanation).trim()}` : ''
+      ].filter(Boolean).join('\n');
+    }).join('\n\n');
+    if(quizText) chunks.push('NGÂN HÀNG CÂU HỎI ĐÃ ĐỒNG BỘ:\n' + quizText);
+  }
+
+  return chunks.join('\n\n').trim().slice(0, CLOUD_SOURCE_MAX_CHARS);
+}
+
+async function getReusableLessonSourceText(lessonId=currentLessonId){
+  const localLesson = getStore('lesson:' + lessonId) || currentLesson || null;
+
+  let text = buildLessonFallbackSource(localLesson);
+  if(text.length >= 50){
+    cloudSourceArchiveText = text;
+    return text;
+  }
+
+  if(navigator.onLine){
+    const cloudText = await loadLessonSourceArchiveCloud(lessonId);
+    if(cloudText && cloudText.length >= 50){
+      cloudSourceArchiveText = cloudText;
+      return cloudText;
+    }
+  }
+
+  return text;
+}
+
+
 
 let adminSelectedUser = null;
 
@@ -2609,7 +2661,7 @@ function renderSidebar(){
 
           renderSidebar(); renderMain();
 
-          if(currentLesson && !cloudSourceArchiveText && currentLesson.sourceArchiveAvailable && navigator.onLine){
+          if(currentLesson && !cloudSourceArchiveText && navigator.onLine){
             loadLessonSourceArchiveCloud(lesson.id);
           }
 
@@ -2766,7 +2818,7 @@ function renderGenerateForm(){
 
     <div class="cloud-source-archive" id="cloudSourceArchiveBox">
       <div>☁️ <strong>Dữ liệu nguồn đã đồng bộ</strong></div>
-      <div class="cloud-source-meta" id="cloudSourceArchiveMeta">Có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm mà không cần upload lại tài liệu.</div>
+      <div class="cloud-source-meta" id="cloudSourceArchiveMeta">Dữ liệu bài học sẽ được dùng lại trên thiết bị khác để tạo Mind Map và trắc nghiệm mà không cần upload lại.</div>
     </div>
 
     <div class="paste-source-box" id="pasteSourceBox" tabindex="0" role="textbox" aria-label="Dán ảnh chụp màn hình hoặc nội dung chữ">
@@ -3113,8 +3165,8 @@ function renderGenerateForm(){
     cloudSourceArchiveText = String(existingLesson?.sourceArchiveText || '');
     cloudSourceArchiveMeta = null;
 
-    if(!cloudSourceArchiveText && navigator.onLine){
-      cloudSourceArchiveText = await loadLessonSourceArchiveCloud(currentLessonId);
+    if(!cloudSourceArchiveText){
+      cloudSourceArchiveText = await getReusableLessonSourceText(currentLessonId);
     }
 
     const cloudBox = wrap.querySelector('#cloudSourceArchiveBox');
@@ -3128,8 +3180,8 @@ function renderGenerateForm(){
 
       if(cloudMeta){
         cloudMeta.textContent = sourceNames.length
-          ? `Đã đồng bộ: ${sourceNames.join(', ')}. Có thể tạo lại nội dung trên thiết bị này mà không upload lại.`
-          : 'Có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm mà không cần upload lại tài liệu.';
+          ? `Đã đồng bộ: ${sourceNames.join(', ')}. Có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm mà không upload lại.`
+          : 'Dữ liệu bài học đã đồng bộ. Bạn có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm trên thiết bị này mà không upload lại.';
       }
     }
 
@@ -3156,15 +3208,12 @@ async function generateLessonWithGemini(wrap){
     return;
   }
   
-  if(!cloudSourceArchiveText && currentLesson?.sourceArchiveText){
-    cloudSourceArchiveText = String(currentLesson.sourceArchiveText);
-  }
-  if(!cloudSourceArchiveText && navigator.onLine){
-    cloudSourceArchiveText = await loadLessonSourceArchiveCloud(currentLessonId);
+  if(!cloudSourceArchiveText || cloudSourceArchiveText.length < 50){
+    cloudSourceArchiveText = await getReusableLessonSourceText(currentLessonId);
   }
 
   if(uploadedFilesQueue.length === 0 && manualText.length < 50 && cloudSourceArchiveText.length < 50){
-    status.textContent = 'Vui lòng nạp tài liệu, dán nội dung hoặc sử dụng dữ liệu nguồn đã đồng bộ.';
+    status.textContent = 'Bài học này chưa có dữ liệu đồng bộ để tạo lại. Chỉ cần upload tài liệu một lần để khởi tạo dữ liệu nguồn.';
     status.style.color = 'var(--wrong)';
     return;
   }
@@ -3253,7 +3302,33 @@ YÊU CẦU:
         contents: [{ parts: parts }],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.85
+          temperature: 0.85,
+          responseSchema: {
+            type: "OBJECT",
+            required: ["sourceArchiveText","mindmapMarkdown","questions"],
+            properties: {
+              sourceArchiveText: { type: "STRING" },
+              mindmapMarkdown: { type: "STRING" },
+              questions: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  required: ["question","options","correctIndex","explanation"],
+                  properties: {
+                    question: { type: "STRING" },
+                    options: {
+                      type: "ARRAY",
+                      minItems: 4,
+                      maxItems: 4,
+                      items: { type: "STRING" }
+                    },
+                    correctIndex: { type: "INTEGER" },
+                    explanation: { type: "STRING" }
+                  }
+                }
+              }
+            }
+          }
         }
       })
     });
@@ -3284,6 +3359,7 @@ YÊU CẦU:
       parsed.sourceArchiveText ||
       cloudSourceArchiveText ||
       manualText ||
+      parsed.mindmapMarkdown ||
       ''
     ).trim().slice(0, CLOUD_SOURCE_MAX_CHARS);
     parsed.questions = parsed.questions.filter(q =>
@@ -3384,10 +3460,7 @@ async function regenerateOnlyQuiz(count, level){
     levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng và ca lâm sàng/thực tế phù hợp với nội dung bài học.";
   }
 
-  let archivedSource = String(currentLesson.sourceArchiveText || '').trim();
-  if(!archivedSource && navigator.onLine){
-    archivedSource = await loadLessonSourceArchiveCloud(currentLessonId);
-  }
+  let archivedSource = await getReusableLessonSourceText(currentLessonId);
 
   const sourceText = String(
     archivedSource ||
