@@ -152,6 +152,9 @@
   .file-queue{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.file-chip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(240,249,249,.88);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink)}.file-chip .chip-del{cursor:pointer;color:var(--muted);font-weight:bold;padding:0 4px}.file-chip .chip-del:hover{color:var(--wrong)}
   .field{margin-bottom:16px}.field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;font-weight:650}.field textarea{width:100%;min-height:100px;resize:vertical;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72);line-height:1.55;color:var(--ink)}
   .paste-source-box{margin:0 0 16px;padding:14px 15px;border:1.5px dashed rgba(14,165,164,.34);border-radius:14px;background:rgba(245,253,252,.72);cursor:text;transition:.18s ease;text-align:left}.paste-source-box:focus,.paste-source-box:hover{outline:none;border-color:var(--accent);background:rgba(235,251,249,.9);box-shadow:0 0 0 4px rgba(14,165,164,.07)}.paste-source-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:750;color:var(--ink);margin-bottom:4px}.paste-source-hint{font-size:12px;color:var(--muted);line-height:1.5}.paste-source-state{font-size:12px;margin-top:8px;color:var(--correct);font-weight:650;white-space:pre-wrap;word-break:break-word}.paste-edit-wrap{display:block;margin-top:10px}.paste-edit-wrap.show{display:block}.paste-edit-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px;font-weight:750;color:var(--ink)}.paste-edit-actions{display:flex;gap:6px;flex-wrap:wrap}.paste-mini-btn{border:1px solid rgba(14,165,164,.22);background:#fff;color:var(--accent-dark);border-radius:8px;padding:5px 8px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}.paste-mini-btn:hover{background:#e9fbf8}.paste-edit-area{width:100%;min-height:92px;max-height:220px;resize:vertical;box-sizing:border-box;color:var(--ink);font-family:var(--font-main);font-size:12.5px;font-weight:500;line-height:1.55;background:rgba(255,255,255,.78);border:1px solid rgba(14,165,164,.18);border-radius:10px;padding:10px 11px;outline:none}.paste-edit-area:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,165,164,.08)}.paste-source-box.is-pasting{border-color:var(--accent);background:rgba(226,249,247,.95)}
+.cloud-source-archive{display:none;margin:0 0 14px;padding:11px 12px;border:1px solid rgba(14,165,164,.18);border-radius:12px;background:linear-gradient(135deg,rgba(221,247,245,.72),rgba(234,242,255,.58));color:var(--ink-2);font-size:11.5px;line-height:1.5}
+.cloud-source-archive.show{display:block}.cloud-source-archive strong{color:var(--accent-dark)}
+.cloud-source-archive .cloud-source-meta{color:var(--muted);font-size:10.5px;margin-top:3px}
   .quiz-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;padding:14px;background:rgba(244,250,251,.66);border:1px solid var(--line);border-radius:14px}.quiz-options-grid label{font-size:12px;color:var(--ink-2);font-weight:650;display:block;margin-bottom:6px}.quiz-options-grid select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.78);font-size:13px;color:var(--ink)}.status-line{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
 
   .mindmap-help{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.48);border:1px solid var(--line);backdrop-filter:blur(12px)}.mindmap-help .hint{font-size:12.5px;color:var(--muted)}
@@ -1366,8 +1369,10 @@ async function performCloudSync({silent=false}={}) {
         const lData = getStore(realKey);
         if (lData) {
           // Không đẩy base64 PDF/ảnh lên Firestore để tránh vượt giới hạn document.
+          const { sourceArchiveText, ...safeLessonData } = lData;
           payload.lessons[realKey] = {
-            ...lData,
+            ...safeLessonData,
+            sourceArchiveAvailable: !!(lData.sourceArchiveAvailable || sourceArchiveText),
             rawPdfSources: [],
             rawSources: []
           };
@@ -1579,6 +1584,9 @@ window.addEventListener('popstate', (event)=>{
 });
 
 let uploadedFilesQueue = [];
+let cloudSourceArchiveText = '';
+let cloudSourceArchiveMeta = null;
+const CLOUD_SOURCE_MAX_CHARS = 180000;
 let currentMmInstance = null;
 let currentMmRoot = null;
 
@@ -1665,6 +1673,63 @@ async function deleteSavedLessonSources(lessonId){
     });
   }catch(err){ console.error('deleteSavedLessonSources error:', err); }
 }
+
+function lessonSourceCloudRef(lessonId=currentLessonId){
+  const user = auth?.currentUser;
+  if(!db || !user || !lessonId) return null;
+  return db.collection('users').doc(user.uid).collection('lessonSources').doc(lessonId);
+}
+
+async function saveLessonSourceArchiveCloud(lessonId, archiveText, meta={}){
+  const ref = lessonSourceCloudRef(lessonId);
+  const cleanText = String(archiveText || '').trim().slice(0, CLOUD_SOURCE_MAX_CHARS);
+  if(!ref || !cleanText) return false;
+
+  try{
+    const payload = {
+      lessonId,
+      subjectId: currentSubjectId || null,
+      archiveText: cleanText,
+      sourceNames: Array.isArray(meta.sourceNames) ? meta.sourceNames.slice(0,20) : [],
+      sourceCount: Number(meta.sourceCount) || 0,
+      rawNoteIncluded: !!meta.rawNoteIncluded,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await ref.set(payload, {merge:true});
+    cloudSourceArchiveText = cleanText;
+    cloudSourceArchiveMeta = payload;
+    return true;
+  }catch(err){
+    console.error('saveLessonSourceArchiveCloud error:', err);
+    setSyncMsg('☁️ Dữ liệu học đã lưu trên máy nhưng chưa lưu được nguồn lên cloud', true, 'error');
+    return false;
+  }
+}
+
+async function loadLessonSourceArchiveCloud(lessonId=currentLessonId, {silent=true}={}){
+  const ref = lessonSourceCloudRef(lessonId);
+  if(!ref || !navigator.onLine) return '';
+
+  try{
+    const snap = await ref.get();
+    if(!snap.exists) return '';
+    const data = snap.data() || {};
+    const archive = String(data.archiveText || '').trim();
+
+    cloudSourceArchiveText = archive;
+    cloudSourceArchiveMeta = data;
+
+    if(archive && currentLessonId === lessonId && currentLesson){
+      currentLesson.sourceArchiveText = archive;
+      setStore('lesson:'+lessonId, currentLesson);
+    }
+    return archive;
+  }catch(err){
+    if(!silent) console.error('loadLessonSourceArchiveCloud error:', err);
+    return '';
+  }
+}
+
 
 
 let adminSelectedUser = null;
@@ -2539,7 +2604,15 @@ function renderSidebar(){
           quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
           uploadedFilesQueue = [];
           currentLesson = getStore('lesson:'+lesson.id);
+          cloudSourceArchiveText = String(currentLesson?.sourceArchiveText || '');
+          cloudSourceArchiveMeta = null;
+
           renderSidebar(); renderMain();
+
+          if(currentLesson && !cloudSourceArchiveText && currentLesson.sourceArchiveAvailable && navigator.onLine){
+            loadLessonSourceArchiveCloud(lesson.id);
+          }
+
           if(isMobileBrowserView() && currentLesson){
             replaceCurrentMobileHistory('mindmap');
           }
@@ -2690,6 +2763,11 @@ function renderGenerateForm(){
     </div>
     <div class="file-queue" id="fileQueue"></div>
     <div id="sourceSaveHint" style="font-size:11.5px;color:var(--muted);margin:-4px 0 14px;display:none;">💾 Tài liệu của bài học được lưu trên thiết bị và sẽ tự nạp lại khi bạn cần tạo mới.</div>
+
+    <div class="cloud-source-archive" id="cloudSourceArchiveBox">
+      <div>☁️ <strong>Dữ liệu nguồn đã đồng bộ</strong></div>
+      <div class="cloud-source-meta" id="cloudSourceArchiveMeta">Có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm mà không cần upload lại tài liệu.</div>
+    </div>
 
     <div class="paste-source-box" id="pasteSourceBox" tabindex="0" role="textbox" aria-label="Dán ảnh chụp màn hình hoặc nội dung chữ">
       <div class="paste-source-title">📋 Dán ảnh chụp màn hình hoặc nội dung chữ</div>
@@ -3026,10 +3104,35 @@ function renderGenerateForm(){
   (async () => {
     const saved = await loadSavedLessonSources(currentLessonId);
     uploadedFilesQueue = Array.isArray(saved) ? saved : [];
+
     const existingLesson = getStore('lesson:' + currentLessonId);
     if(existingLesson?.rawNoteText && !textarea.value){
       textarea.value = existingLesson.rawNoteText;
     }
+
+    cloudSourceArchiveText = String(existingLesson?.sourceArchiveText || '');
+    cloudSourceArchiveMeta = null;
+
+    if(!cloudSourceArchiveText && navigator.onLine){
+      cloudSourceArchiveText = await loadLessonSourceArchiveCloud(currentLessonId);
+    }
+
+    const cloudBox = wrap.querySelector('#cloudSourceArchiveBox');
+    const cloudMeta = wrap.querySelector('#cloudSourceArchiveMeta');
+
+    if(cloudBox && cloudSourceArchiveText){
+      cloudBox.classList.add('show');
+      const sourceNames = Array.isArray(cloudSourceArchiveMeta?.sourceNames)
+        ? cloudSourceArchiveMeta.sourceNames.filter(Boolean)
+        : [];
+
+      if(cloudMeta){
+        cloudMeta.textContent = sourceNames.length
+          ? `Đã đồng bộ: ${sourceNames.join(', ')}. Có thể tạo lại nội dung trên thiết bị này mà không upload lại.`
+          : 'Có thể tạo lại Mind Map hoặc tạo thêm trắc nghiệm mà không cần upload lại tài liệu.';
+      }
+    }
+
     renderQueueList();
   })();
 
@@ -3053,8 +3156,15 @@ async function generateLessonWithGemini(wrap){
     return;
   }
   
-  if(uploadedFilesQueue.length === 0 && manualText.length < 50){
-    status.textContent = 'Vui lòng nạp ít nhất một tài liệu PDF/ảnh hoặc dán nội dung giáo trình.';
+  if(!cloudSourceArchiveText && currentLesson?.sourceArchiveText){
+    cloudSourceArchiveText = String(currentLesson.sourceArchiveText);
+  }
+  if(!cloudSourceArchiveText && navigator.onLine){
+    cloudSourceArchiveText = await loadLessonSourceArchiveCloud(currentLessonId);
+  }
+
+  if(uploadedFilesQueue.length === 0 && manualText.length < 50 && cloudSourceArchiveText.length < 50){
+    status.textContent = 'Vui lòng nạp tài liệu, dán nội dung hoặc sử dụng dữ liệu nguồn đã đồng bộ.';
     status.style.color = 'var(--wrong)';
     return;
   }
@@ -3086,6 +3196,7 @@ Nhiệm vụ: Đọc kỹ tài liệu và trả về DUY NHẤT một đối tư
 
 CẤU TRÚC BẮT BUỘC:
 {
+  "sourceArchiveText": "Kho dữ liệu học tập có cấu trúc, giữ lại các định nghĩa, phân loại, công thức, số liệu, bảng và chi tiết cần thiết để tạo lại nội dung về sau.",
   "mindmapMarkdown": "# Tên chủ đề chính\\n## 1. Nhánh lớn 1\\n### Nhánh con 1.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n### Nhánh con 1.2\\n- Ý chi tiết 1\\n- Ý chi tiết 2\\n## 2. Nhánh lớn 2\\n### Nhánh con 2.1\\n- Ý chi tiết 1\\n- Ý chi tiết 2",
   "questions": [
     {
@@ -3098,8 +3209,9 @@ CẤU TRÚC BẮT BUỘC:
 }
 
 YÊU CẦU:
-1. SƠ ĐỒ TƯ DUY: Phân cấp rõ ràng bằng Markdown (#, ##, ###, -), súc tích, dễ nhớ.
-2. TRẮC NGHIỆM:
+1. KHO DỮ LIỆU NGUỒN (sourceArchiveText): Trích xuất và chuẩn hóa nội dung học thuật từ tài liệu để có thể dùng lại trên thiết bị khác. Giữ thuật ngữ, định nghĩa, phân loại, công thức, số liệu, mối liên hệ, bảng/ý quan trọng; loại bỏ lặp lại và phần trang trí. Không bịa thêm kiến thức ngoài tài liệu.
+2. SƠ ĐỒ TƯ DUY: Phân cấp rõ ràng bằng Markdown (#, ##, ###, -), súc tích, dễ nhớ.
+3. TRẮC NGHIỆM:
 - Soạn ĐÚNG CHÍNH XÁC ${numQuestions} câu hỏi trắc nghiệm mới, đa dạng góc nhìn, KHÔNG trùng lặp.
 - Định hướng đề thi: ${levelInstruction}
 - Mã ngẫu nhiên phiên làm việc: ${Date.now()}`;
@@ -3113,6 +3225,12 @@ YÊU CẦU:
           data: f.base64
         }
       });
+    });
+  }
+  if(cloudSourceArchiveText){
+    parts.push({
+      text: "DỮ LIỆU NGUỒN ĐÃ ĐỒNG BỘ TỪ LẦN HỌC TRƯỚC:\n" +
+        cloudSourceArchiveText.slice(0, CLOUD_SOURCE_MAX_CHARS)
     });
   }
   if(manualText){
@@ -3161,6 +3279,13 @@ YÊU CẦU:
     if(typeof parsed.mindmapMarkdown !== 'string' || !Array.isArray(parsed.questions)){
       throw new Error('Gemini trả về dữ liệu không đúng cấu trúc yêu cầu.');
     }
+
+    const generatedArchive = String(
+      parsed.sourceArchiveText ||
+      cloudSourceArchiveText ||
+      manualText ||
+      ''
+    ).trim().slice(0, CLOUD_SOURCE_MAX_CHARS);
     parsed.questions = parsed.questions.filter(q =>
       q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 &&
       Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < 4
@@ -3184,12 +3309,26 @@ YÊU CẦU:
       })),
       rawPdfSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, mimeType: f.mimeType || 'application/pdf' })),
       rawSources: uploadedFilesQueue.map(f => ({ name: f.name, size: f.size, mimeType: f.mimeType || 'application/pdf' })),
-      sourceCount: uploadedFilesQueue.length,
+      sourceCount: uploadedFilesQueue.length || Number(cloudSourceArchiveMeta?.sourceCount || 0),
+      sourceArchiveAvailable: !!generatedArchive,
+      sourceArchiveText: generatedArchive,
       rawNoteText: manualText,
       createdAt: Date.now()
     };
     setStore('lesson:'+currentLessonId, lessonObj);
     currentLesson = lessonObj;
+    cloudSourceArchiveText = generatedArchive;
+
+    if(generatedArchive){
+      await saveLessonSourceArchiveCloud(currentLessonId, generatedArchive, {
+        sourceNames: uploadedFilesQueue.length
+          ? uploadedFilesQueue.map(f=>f.name)
+          : (cloudSourceArchiveMeta?.sourceNames || []),
+        sourceCount: uploadedFilesQueue.length || Number(cloudSourceArchiveMeta?.sourceCount || 0),
+        rawNoteIncluded: !!manualText
+      });
+    }
+
     activeTab = 'mindmap';
     syncToCloud();
     renderMain();
@@ -3245,7 +3384,18 @@ async function regenerateOnlyQuiz(count, level){
     levelInstruction = "Tập trung vào tình huống thực hành, ứng dụng và ca lâm sàng/thực tế phù hợp với nội dung bài học.";
   }
 
-  const sourceText = String(currentLesson.mindmapMarkdown || currentLesson.name || '').slice(0, 50000);
+  let archivedSource = String(currentLesson.sourceArchiveText || '').trim();
+  if(!archivedSource && navigator.onLine){
+    archivedSource = await loadLessonSourceArchiveCloud(currentLessonId);
+  }
+
+  const sourceText = String(
+    archivedSource ||
+    currentLesson.mindmapMarkdown ||
+    currentLesson.name ||
+    ''
+  ).slice(0, CLOUD_SOURCE_MAX_CHARS);
+
   const noteText = String(currentLesson.rawNoteText || '').slice(0, 15000);
 
   const promptText = `Bạn là chuyên gia soạn đề thi Y Dược.
