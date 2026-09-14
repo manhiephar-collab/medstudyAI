@@ -147,7 +147,63 @@
 
   .lesson-header{max-width:1180px;margin:0 auto 16px;padding:17px 20px;background:rgba(255,255,255,.50);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(18px);box-shadow:var(--shadow-soft)}
   .eyebrow{color:var(--accent-dark);font-size:12px;margin-bottom:3px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}.lesson-title{font-size:27px;font-weight:750;color:#0B2940}.tabs{max-width:1180px;margin:14px auto 18px;display:flex;gap:8px;border:none;padding:6px;background:rgba(255,255,255,.50);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(14px);width:max-content;max-width:100%;overflow-x:auto}.tab{padding:8px 14px;cursor:pointer;font-size:13px;color:var(--muted);border:none!important;border-radius:10px;white-space:nowrap;font-weight:600;transition:.18s ease}.tab.active{color:var(--accent-dark);background:rgba(221,247,245,.88);font-weight:700;box-shadow:inset 0 0 0 1px rgba(14,165,164,.08)}
-  #tabBody{max-width:1180px;margin:0 auto}.card,.q-box{background:rgba(255,255,255,.69);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);backdrop-filter:blur(18px) saturate(145%)}
+  #tabBody{max-width:1180px;margin:0 auto}
+#tabBody.mindmap-tab-body{max-width:none}
+@media(min-width:1101px){
+  #tabBody.mindmap-tab-body .mindmap-help,
+  #tabBody.mindmap-tab-body .mindmap-wrapper{
+    width:min(1680px,calc(100vw - 350px));
+    margin-left:50%;
+    transform:translateX(-50%);
+  }
+  #tabBody.mindmap-tab-body #mindmapViewport{height:min(78vh,860px);min-height:760px}
+  #tabBody.mindmap-tab-body .mindmap-wrapper{min-height:760px}
+}
+.card,.q-box{background:rgba(255,255,255,.69);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);backdrop-filter:blur(18px) saturate(145%)}
+
+.study-note-shell{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:16px;align-items:start}
+.study-note-compose,.study-note-list-wrap{background:rgba(255,255,255,.68);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-soft);backdrop-filter:blur(16px);padding:18px}
+.study-note-title{font-size:17px;font-weight:800;color:var(--ink-2);margin-bottom:4px}
+.study-note-sub{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.study-note-field{margin-bottom:11px}
+.study-note-field label{display:block;font-size:11.5px;font-weight:750;color:var(--ink-2);margin-bottom:6px}
+.study-note-field select,.study-note-field textarea,.study-note-field input{width:100%;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.82);color:var(--ink);padding:10px 11px;font:inherit;font-size:12.5px}
+.study-note-field textarea{min-height:130px;resize:vertical;line-height:1.55}
+.study-note-actions{display:flex;gap:7px;flex-wrap:wrap}
+.study-note-counter{margin-left:auto;font-size:10.5px;color:var(--muted);align-self:center}
+.study-note-list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.study-note-filter{border:1px solid var(--line);border-radius:10px;background:#fff;padding:7px 9px;color:var(--ink-2);font:inherit;font-size:11px}
+.study-note-list{display:flex;flex-direction:column;gap:10px}
+.study-note-empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:13px;background:rgba(248,252,252,.66)}
+.study-note-card{position:relative;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.82);padding:13px 14px;box-shadow:0 8px 20px rgba(23,82,94,.06)}
+.study-note-card.pinned{border-color:rgba(14,165,164,.30);background:linear-gradient(135deg,rgba(236,252,250,.93),rgba(245,249,255,.92))}
+.study-note-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.study-note-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;background:var(--accent-soft);color:var(--accent-dark)}
+.study-note-card[data-type="homework"] .study-note-badge{background:#FFF1E8;color:#B4612F}
+.study-note-card[data-type="class"] .study-note-badge{background:#EAF2FF;color:#3D67B9}
+.study-note-card[data-type="important"] .study-note-badge{background:#FFF3D9;color:#9A6400}
+.study-note-card[data-type="other"] .study-note-badge{background:#F1EBFF;color:#6E4DB6}
+.study-note-time{font-size:9.8px;color:var(--muted);white-space:nowrap}
+.study-note-text{margin-top:9px;white-space:pre-wrap;word-break:break-word;color:var(--ink-2);font-size:13px;line-height:1.58}
+.study-note-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.study-note-mini{border:1px solid rgba(14,165,164,.16);background:#fff;color:var(--accent-dark);border-radius:8px;padding:5px 8px;font:inherit;font-size:10.5px;font-weight:700;cursor:pointer}
+.study-note-mini:hover{background:var(--accent-soft)}
+.study-note-mini.danger{color:var(--wrong);border-color:rgba(217,93,104,.16)}
+.study-note-mini.danger:hover{background:var(--wrong-soft)}
+.study-note-sync-note{font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.45}
+
+@media(max-width:820px){
+  #tabBody.mindmap-tab-body .mindmap-help,
+  #tabBody.mindmap-tab-body .mindmap-wrapper{width:100%;margin-left:0;transform:none}
+  .study-note-shell{grid-template-columns:1fr}
+  .study-note-compose,.study-note-list-wrap{padding:15px}
+}
+@media(max-width:520px){
+  .study-note-list-head{align-items:stretch;flex-direction:column}
+  .study-note-filter{width:100%}
+  .study-note-actions .btn{flex:1}
+  .study-note-counter{width:100%;margin-left:0;text-align:right}
+}
   .upload-box{border:1.5px dashed rgba(14,165,164,.38);padding:36px 20px;border-radius:16px;text-align:center;background:linear-gradient(135deg,rgba(226,249,247,.66),rgba(238,245,255,.58));margin-bottom:16px;cursor:pointer;transition:.2s ease}.upload-box:hover,.upload-box.dragover{border-color:var(--accent);background:linear-gradient(135deg,rgba(216,248,246,.92),rgba(230,242,255,.85));transform:translateY(-1px)}
   .file-queue{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.file-chip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(240,249,249,.88);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink)}.file-chip .chip-del{cursor:pointer;color:var(--muted);font-weight:bold;padding:0 4px}.file-chip .chip-del:hover{color:var(--wrong)}
   .field{margin-bottom:16px}.field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;font-weight:650}.field textarea{width:100%;min-height:100px;resize:vertical;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72);line-height:1.55;color:var(--ink)}
@@ -1509,7 +1565,7 @@ function buildMobileHistoryState(view = mobileViewName()){
     view,
     subjectId: currentSubjectId || null,
     lessonId: currentLessonId || null,
-    tab: (view === 'mindmap' || view === 'quiz' || view === 'history') ? view : (activeTab || 'mindmap')
+    tab: (view === 'mindmap' || view === 'quiz' || view === 'history' || view === 'notes') ? view : (activeTab || 'mindmap')
   };
 }
 
@@ -1556,7 +1612,7 @@ function restoreMobileHistoryState(state){
       currentLesson = saved || null;
 
       if(currentLesson){
-        activeTab = ['mindmap','quiz','history'].includes(view) ? view : 'mindmap';
+        activeTab = ['mindmap','quiz','history','notes'].includes(view) ? view : 'mindmap';
         if(activeTab === 'quiz'){
           quiz = { index:0, answers:[], started:false, done:false, reviewMode:false, reviewQuestions:[] };
         }
@@ -2747,7 +2803,7 @@ function renderMain(){
           <article class="feature-card"><div class="feature-icon">▤</div><h3>Tóm tắt nhanh</h3><p>Biến tài liệu dài thành kiến thức cốt lõi, dễ ôn lại.</p></article>
           <article class="feature-card"><div class="feature-icon">⌘</div><h3>Sơ đồ tư duy</h3><p>Hệ thống hóa kiến thức trực quan với cơ chế Bật / Xổ.</p></article>
           <article class="feature-card"><div class="feature-icon">✓</div><h3>Luyện tập hiệu quả</h3><p>Tạo câu hỏi trắc nghiệm theo mức độ và tình huống.</p></article>
-          <article class="feature-card"><div class="feature-icon">☆</div><h3>Cá nhân hóa</h3><p>Lưu bài học, lịch sử làm bài và dữ liệu đồng bộ.</p></article>
+          <article class="feature-card"><div class="feature-icon">☆</div><h3>Cá nhân hóa</h3><p>Lưu ghi chú học tập, lịch sử làm bài và dữ liệu đồng bộ.</p></article>
         </section>
         <div class="home-tip">Chọn hoặc tạo <strong>môn học → bài học</strong> ở thanh bên để bắt đầu.</div>
       </div>`;
@@ -2771,7 +2827,7 @@ function renderMain(){
 
   const tabs = document.createElement('div');
   tabs.className = 'tabs';
-  [['mindmap','Sơ đồ Tư duy (Bật/Xổ)'],['quiz','Trắc nghiệm'],['history','Lịch sử ôn thi']].forEach(([key,label]) => {
+  [['mindmap','Sơ đồ Tư duy (Bật/Xổ)'],['quiz','Trắc nghiệm'],['notes','Ghi chú học tập'],['history','Lịch sử ôn thi']].forEach(([key,label]) => {
     const t = document.createElement('div');
     t.className = 'tab' + (activeTab===key ? ' active' : '');
     t.textContent = toNFC(label);
@@ -2792,10 +2848,12 @@ function renderMain(){
 
   const body = document.createElement('div');
   body.id = 'tabBody';
+  if(activeTab === 'mindmap') body.classList.add('mindmap-tab-body');
   main.appendChild(body);
 
   if(activeTab === 'mindmap') renderMindmap(body);
   else if(activeTab === 'quiz') renderQuiz(body);
+  else if(activeTab === 'notes') renderStudyNotes(body);
   else renderHistory(body);
 }
 
@@ -4588,6 +4646,255 @@ function renderMindmap(container){
 }
 
 /* 8. QUIZ ENGINE */
+
+function normalizeStudyNotes(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw
+    .filter(n=>n && typeof n === 'object')
+    .map((n, idx)=>({
+      id: String(n.id || `note-${Date.now()}-${idx}`),
+      type: ['homework','class','important','other'].includes(n.type) ? n.type : 'class',
+      text: String(n.text || '').trim(),
+      pinned: !!n.pinned,
+      createdAt: Number(n.createdAt) || Date.now(),
+      updatedAt: Number(n.updatedAt) || Number(n.createdAt) || Date.now()
+    }))
+    .filter(n=>n.text);
+}
+
+function getStudyNotes(){
+  currentLesson.studyNotes = normalizeStudyNotes(currentLesson?.studyNotes);
+  return currentLesson.studyNotes;
+}
+
+function studyNoteTypeLabel(type){
+  return ({
+    homework:'📚 Bài tập về nhà',
+    class:'📝 Note trên lớp',
+    important:'⭐ Điểm cần nhớ',
+    other:'📌 Ghi chú khác'
+  })[type] || '📝 Ghi chú';
+}
+
+function formatStudyNoteTime(ms){
+  try{
+    return new Date(ms).toLocaleString('vi-VN',{
+      timeZone:'Asia/Ho_Chi_Minh',
+      hour12:false,
+      day:'2-digit',
+      month:'2-digit',
+      year:'numeric',
+      hour:'2-digit',
+      minute:'2-digit'
+    });
+  }catch(_){ return ''; }
+}
+
+function saveStudyNotes(){
+  if(!currentLesson || !currentLessonId) return;
+  currentLesson.studyNotes = normalizeStudyNotes(currentLesson.studyNotes);
+  setStore('lesson:'+currentLessonId, currentLesson);
+  syncToCloud();
+}
+
+function renderStudyNotes(container){
+  const notes = getStudyNotes();
+  let editingId = null;
+
+  container.innerHTML = `
+    <div class="study-note-shell">
+      <section class="study-note-compose">
+        <div class="study-note-title">🗒️ Ghi chú học tập</div>
+        <div class="study-note-sub">Lưu bài tập về nhà, điểm cần note trên lớp hoặc kiến thức cần nhớ. Ghi chú được đồng bộ theo tài khoản MedStudy AI.</div>
+
+        <div class="study-note-field">
+          <label>Loại ghi chú</label>
+          <select id="studyNoteType">
+            <option value="homework">📚 Bài tập về nhà</option>
+            <option value="class" selected>📝 Note trên lớp</option>
+            <option value="important">⭐ Điểm cần nhớ</option>
+            <option value="other">📌 Ghi chú khác</option>
+          </select>
+        </div>
+
+        <div class="study-note-field">
+          <label>Nội dung</label>
+          <textarea id="studyNoteText" maxlength="4000" placeholder="Ví dụ: Thầy nhấn mạnh cơ chế tác dụng này dễ xuất hiện trong đề thi..."></textarea>
+        </div>
+
+        <div class="study-note-actions">
+          <button class="btn small" id="saveStudyNoteBtn" type="button">Lưu ghi chú</button>
+          <button class="btn small ghost" id="cancelEditStudyNoteBtn" type="button" style="display:none;">Hủy sửa</button>
+          <span class="study-note-counter" id="studyNoteCounter">0/4000</span>
+        </div>
+
+        <div class="study-note-sync-note">☁️ Ghi chú nhẹ nên được lưu local trước và tự đồng bộ lên Firebase theo cơ chế debounce.</div>
+      </section>
+
+      <section class="study-note-list-wrap">
+        <div class="study-note-list-head">
+          <div>
+            <div class="study-note-title" style="font-size:15px;margin-bottom:2px;">Ghi chú của bài học</div>
+            <div class="study-note-sub" style="margin:0;">Ghim những ý quan trọng để luôn hiển thị ở đầu.</div>
+          </div>
+          <select class="study-note-filter" id="studyNoteFilter">
+            <option value="all">Tất cả ghi chú</option>
+            <option value="homework">Bài tập về nhà</option>
+            <option value="class">Note trên lớp</option>
+            <option value="important">Điểm cần nhớ</option>
+            <option value="other">Ghi chú khác</option>
+          </select>
+        </div>
+        <div class="study-note-list" id="studyNoteList"></div>
+      </section>
+    </div>
+  `;
+
+  const typeEl = container.querySelector('#studyNoteType');
+  const textEl = container.querySelector('#studyNoteText');
+  const saveBtn = container.querySelector('#saveStudyNoteBtn');
+  const cancelBtn = container.querySelector('#cancelEditStudyNoteBtn');
+  const counter = container.querySelector('#studyNoteCounter');
+  const filterEl = container.querySelector('#studyNoteFilter');
+  const listEl = container.querySelector('#studyNoteList');
+
+  const resetEditor = ()=>{
+    editingId = null;
+    typeEl.value = 'class';
+    textEl.value = '';
+    saveBtn.textContent = 'Lưu ghi chú';
+    cancelBtn.style.display = 'none';
+    counter.textContent = '0/4000';
+  };
+
+  const drawList = ()=>{
+    const filter = filterEl.value;
+    let rows = normalizeStudyNotes(currentLesson.studyNotes);
+    rows.sort((a,b)=>{
+      if(a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt - a.updatedAt;
+    });
+    if(filter !== 'all') rows = rows.filter(n=>n.type === filter);
+
+    listEl.innerHTML = '';
+    if(rows.length === 0){
+      listEl.innerHTML = '<div class="study-note-empty">Chưa có ghi chú trong nhóm này.</div>';
+      return;
+    }
+
+    rows.forEach(note=>{
+      const card = document.createElement('article');
+      card.className = 'study-note-card' + (note.pinned ? ' pinned' : '');
+      card.dataset.type = note.type;
+
+      const top = document.createElement('div');
+      top.className = 'study-note-top';
+
+      const badge = document.createElement('span');
+      badge.className = 'study-note-badge';
+      badge.textContent = studyNoteTypeLabel(note.type);
+
+      const time = document.createElement('span');
+      time.className = 'study-note-time';
+      time.textContent = formatStudyNoteTime(note.updatedAt);
+
+      top.append(badge,time);
+
+      const content = document.createElement('div');
+      content.className = 'study-note-text';
+      content.textContent = note.text;
+
+      const actions = document.createElement('div');
+      actions.className = 'study-note-card-actions';
+
+      const pinBtn = document.createElement('button');
+      pinBtn.className = 'study-note-mini';
+      pinBtn.type = 'button';
+      pinBtn.textContent = note.pinned ? '☆ Bỏ ghim' : '★ Ghim';
+      pinBtn.addEventListener('click', ()=>{
+        const target = currentLesson.studyNotes.find(n=>n.id === note.id);
+        if(!target) return;
+        target.pinned = !target.pinned;
+        target.updatedAt = Date.now();
+        saveStudyNotes();
+        drawList();
+      });
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'study-note-mini';
+      editBtn.type = 'button';
+      editBtn.textContent = '✎ Sửa';
+      editBtn.addEventListener('click', ()=>{
+        editingId = note.id;
+        typeEl.value = note.type;
+        textEl.value = note.text;
+        saveBtn.textContent = 'Lưu thay đổi';
+        cancelBtn.style.display = '';
+        counter.textContent = `${textEl.value.length}/4000`;
+        textEl.focus();
+        textEl.scrollIntoView({behavior:'smooth',block:'center'});
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'study-note-mini danger';
+      delBtn.type = 'button';
+      delBtn.textContent = 'Xóa';
+      delBtn.addEventListener('click', ()=>{
+        if(!confirm('Xóa ghi chú này?')) return;
+        currentLesson.studyNotes = currentLesson.studyNotes.filter(n=>n.id !== note.id);
+        saveStudyNotes();
+        if(editingId === note.id) resetEditor();
+        drawList();
+      });
+
+      actions.append(pinBtn,editBtn,delBtn);
+      card.append(top,content,actions);
+      listEl.appendChild(card);
+    });
+  };
+
+  textEl.addEventListener('input', ()=>{
+    counter.textContent = `${textEl.value.length}/4000`;
+  });
+
+  saveBtn.addEventListener('click', ()=>{
+    const value = textEl.value.trim();
+    if(!value){
+      textEl.focus();
+      return;
+    }
+
+    currentLesson.studyNotes = normalizeStudyNotes(currentLesson.studyNotes);
+
+    if(editingId){
+      const target = currentLesson.studyNotes.find(n=>n.id === editingId);
+      if(target){
+        target.type = typeEl.value;
+        target.text = value;
+        target.updatedAt = Date.now();
+      }
+    }else{
+      currentLesson.studyNotes.push({
+        id:`note-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        type:typeEl.value,
+        text:value,
+        pinned:false,
+        createdAt:Date.now(),
+        updatedAt:Date.now()
+      });
+    }
+
+    saveStudyNotes();
+    resetEditor();
+    drawList();
+  });
+
+  cancelBtn.addEventListener('click', resetEditor);
+  filterEl.addEventListener('change', drawList);
+
+  drawList();
+}
+
 function renderQuiz(container){
   container.innerHTML = '';
   const questions = (quiz.reviewMode && Array.isArray(quiz.reviewQuestions))
